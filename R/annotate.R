@@ -205,16 +205,21 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
   map_df <- data.frame(
     patient = patient_ids,
     clone_id = cell_clone_map$clone_id,
+    # Clone names are only unique *within* a patient (e.g. "Kydar01_c1" and
+    # "Kydar02_c1" both shorten to "c1"). Keying the abundance columns on
+    # "patient@@clone" keeps them aligned with the clone_expression_rnorm
+    # columns and prevents abundance from being summed across patients.
+    clone_key = paste(patient_ids, cell_clone_map$clone_id, sep = "@@"),
     stringsAsFactors = FALSE
   )
 
-  all_clones <- unique(cell_clone_map$clone_id)
+  all_keys <- unique(map_df$clone_key)
   all_patients <- unique(patient_ids)
 
   result <- data.frame(patients = all_patients, stringsAsFactors = FALSE)
-  for (cl in all_clones) {
+  for (cl in all_keys) {
     result[[cl]] <- sapply(all_patients, function(pat) {
-      sum(map_df$patient == pat & map_df$clone_id == cl)
+      sum(map_df$patient == pat & map_df$clone_key == cl)
     })
   }
 

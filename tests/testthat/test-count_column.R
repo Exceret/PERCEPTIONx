@@ -11,7 +11,7 @@ test_that("prepare_data expands a mapping carrying a per-clone count column", {
   expr <- matrix(runif(20 * 3), nrow = 20, dimnames = list(genes, clones))
 
   ct <- function(cc, pat, cl) {
-    as.numeric(cc[cc$patients == pat, cl])
+    as.numeric(cc[cc$patients == pat, paste0(pat, "@@", cl)])
   }
 
   map_equal <- data.frame(cell_id = clones, patient_id = c("P1", "P1", "P2"),

@@ -325,13 +325,17 @@ predict_patients <- function(clone_pred, prepared_data, clone_counts = NULL,
       return(setNames(rep(NA, n_drugs), drug_cols))
     }
 
-    # Compute clone weights
+    # Compute clone weights. Abundance columns are keyed "patient@@clone" (see
+    # build_clone_counts); fall back to the bare clone id so objects prepared by
+    # earlier versions keep working.
     clone_ids <- patient_clones$clone_id
-    total_cells <- sum(clone_counts[x, clone_ids], na.rm = TRUE)
+    clone_keys <- paste(patient_id, clone_ids, sep = "@@")
+    use_keys <- if (all(clone_keys %in% colnames(clone_counts))) clone_keys else clone_ids
+    total_cells <- sum(clone_counts[x, use_keys], na.rm = TRUE)
     if (!is.finite(total_cells) || total_cells == 0) {
       return(setNames(rep(NA, n_drugs), drug_cols))
     }
-    clone_weights <- unlist(clone_counts[x, clone_ids] / total_cells)
+    clone_weights <- unlist(clone_counts[x, use_keys] / total_cells)
 
     # Aggregate based on mode
     if (n_drugs == 1) {
