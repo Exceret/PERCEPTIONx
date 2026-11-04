@@ -1,0 +1,93 @@
+# nocov start
+
+#' @title Personalized Drug Response Prediction from Single-Cell Transcriptomics
+#'
+#' @description An R implementation of the PERCEPTION approach (Sinha et al., 2024)
+#' for predicting personalized drug response from single-cell tumor
+#' transcriptomics. It trains drug-response models on large-scale cell-line
+#' screens, predicts sensitivity at clone and patient level, and ships an
+#' interactive visualization suite plus a Shiny web application.
+#'
+#' @section License:
+#' MIT + file LICENSE
+#'
+#' @docType package
+#' @name PERCEPTIONx-package
+#' @aliases PERCEPTIONx
+#' @keywords internal
+#'
+"_PACKAGE"
+
+
+.onAttach <- function(libname, pkgname) {
+  if (startup_message_allowed()) {
+    pkg_version <- utils::packageVersion(pkgname)
+    end <- Sys.time()
+    elapsed <- cli_timestamp_formatter(as.numeric(end - .time_record$start))
+    cli::cli_alert_success(sprintf(
+      "{.pkg {pkgname}} v{pkg_version} loaded {cli::col_grey('[%s]')}",
+      elapsed
+    ))
+  }
+}
+
+.onLoad <- function(libname, pkgname) {
+  if (startup_message_allowed()) {
+    .time_record$start <- Sys.time()
+  }
+
+  invisible()
+}
+
+.time_record <- new.env()
+
+cli_timestamp_formatter <- function(x) {
+  stopifnot(
+    length(x) == 1L,
+    is.numeric(x),
+    !is.na(x),
+    x >= 0L
+  )
+
+  if (x < 1L) {
+    sprintf("%d ms", as.integer(x * 1000L))
+  } else if (x < 60L) {
+    sprintf("%d s", as.integer(x))
+  } else if (x < 3600L) {
+    sprintf("%d min %d s", floor(x / 60L), as.integer(x %% 60L))
+  } else {
+    sprintf(
+      "%d h %02d min %d s",
+      floor(x / 3600L),
+      floor((x %% 3600L) / 60L),
+      as.integer(x %% 60L)
+    )
+  }
+}
+
+startup_message_allowed <- function() {
+  allowed <- FALSE
+
+  withRestarts(
+    {
+      signalCondition(structure(
+        list(message = ".__startup_probe__."),
+        class = c(
+          "packageStartupProbe",
+          "packageStartupMessage",
+          "condition"
+        )
+      ))
+      allowed <- TRUE
+    },
+    muffleMessage = function() NULL
+  )
+
+  allowed
+}
+
+## usethis namespace: start
+## usethis namespace: end
+NULL
+
+# nocov end

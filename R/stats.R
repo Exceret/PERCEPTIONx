@@ -22,7 +22,12 @@ NULL
 #'
 #' @return Numeric p-value.
 #' @export
-hypergeometric_test_for_twolists <- function(test_list, base_list, global, lower.tail = FALSE) {
+hypergeometric_test_for_twolists <- function(
+  test_list,
+  base_list,
+  global,
+  lower.tail = FALSE
+) {
   base_in_global <- global[na.omit(match(base_list, global))]
   test_in_global <- test_list[!is.na(match(test_list, global))]
   overlap <- test_in_global[!is.na(match(test_in_global, base_in_global))]
@@ -39,7 +44,6 @@ hypergeometric_test_for_twolists <- function(test_list, base_list, global, lower
 }
 
 
-
 #' FDR correction for multiple testing
 #'
 #' Performs False Discovery Rate (FDR) correction using the Benjamini-Hochberg method.
@@ -51,7 +55,6 @@ hypergeometric_test_for_twolists <- function(test_list, base_list, global, lower
 fdrcorr <- function(test_list) {
   p.adjust(test_list, method = "fdr")
 }
-
 
 
 #' Rank-normalize each column of a matrix
@@ -90,13 +93,13 @@ fdrcorr <- function(test_list) {
 #' raw_expr <- matrix(c(10, 200, 50, 30, 300, 80), nrow = 3, ncol = 2)
 #' rownames(raw_expr) <- c("GENE_A", "GENE_B", "GENE_C")
 #' norm_expr <- rank_normalization_mat(raw_expr)
-rank_normalization_mat <- function(mat){
+rank_normalization_mat <- function(mat) {
   apply(
     mat,
     2,
-    function(x) rank(x, ties.method = "average")/length(x))
+    function(x) rank(x, ties.method = "average") / length(x)
+  )
 }
-
 
 
 #' Change range to 0-1
@@ -107,9 +110,9 @@ rank_normalization_mat <- function(mat){
 #' @param x A numeric vector.
 #' @return A numeric vector scaled between 0 and 1.
 #' @export
-range01 <- function(x){
-  substitute_of_Min <- topXPercentValue(vec=x, X_percentile=5)
-  substitute_of_Max <- topXPercentValue(vec=x, X_percentile=95)
+range01 <- function(x) {
+  substitute_of_Min <- topXPercentValue(vec = x, X_percentile = 5)
+  substitute_of_Max <- topXPercentValue(vec = x, X_percentile = 95)
   denom <- substitute_of_Max - substitute_of_Min
   if (!is.finite(denom) || denom == 0) {
     # No spread between the 5th and 95th percentiles — the vector is
@@ -125,7 +128,6 @@ range01 <- function(x){
   x_scaled[x_scaled > 1] <- 1
   x_scaled
 }
-
 
 
 #' Compute clone-level mean expression from single-cell data
@@ -144,24 +146,33 @@ range01 <- function(x){
 #' @return A named list of matrices, one per patient. Each matrix has genes as rows
 #'         and clone IDs as columns, with mean expression values.
 #' @export
-clone_mean_expression <- function(expression_matrix, cell_clone_map, patient_ids = NULL) {
-
+clone_mean_expression <- function(
+  expression_matrix,
+  cell_clone_map,
+  patient_ids = NULL
+) {
   if (!all(c("cell_id", "clone_id") %in% colnames(cell_clone_map))) {
-    stop("cell_clone_map must have columns 'cell_id' and 'clone_id'.")
+    cli::cli_abort(
+      "cell_clone_map must have columns {.field cell_id} and {.field clone_id}."
+    )
   }
 
   cell_ids <- colnames(expression_matrix)
   if (is.null(cell_ids)) {
-    stop("expression_matrix must have column names (cell IDs).")
+    cli::cli_abort("expression_matrix must have column names (cell IDs).")
   }
 
   # Filter to cells present in both expression matrix and mapping
   common_cells <- intersect(cell_ids, as.character(cell_clone_map$cell_id))
   if (length(common_cells) == 0) {
-    stop("No matching cells between expression matrix and cell_clone_map.")
+    cli::cli_abort(
+      "No matching cells between expression matrix and cell_clone_map."
+    )
   }
 
-  cell_clone_map <- cell_clone_map[match(common_cells, cell_clone_map$cell_id), ]
+  cell_clone_map <- cell_clone_map[
+    match(common_cells, cell_clone_map$cell_id),
+  ]
   expr_subset <- expression_matrix[, common_cells, drop = FALSE]
 
   if (is.null(patient_ids)) {
@@ -183,20 +194,29 @@ clone_mean_expression <- function(expression_matrix, cell_clone_map, patient_ids
     pat_cells <- names(patient_ids[patient_ids == pat])
     pat_map <- cell_clone_map[cell_clone_map$cell_id %in% pat_cells, ]
 
-    if (nrow(pat_map) == 0) next
+    if (nrow(pat_map) == 0) {
+      next
+    }
 
     clone_ids <- unique(pat_map$clone_id)
-    clone_expr <- do.call(cbind, lapply(clone_ids, function(cl) {
-      cl_cells <- as.character(pat_map$cell_id[pat_map$clone_id == cl])
-      cl_cells <- intersect(cl_cells, colnames(expr_subset))
-      if (length(cl_cells) == 0) return(NULL)
-      if (length(cl_cells) == 1) {
-        return(expr_subset[, cl_cells])
-      }
-      rowMeans_if_one_row(data.frame(expr_subset[, cl_cells, drop = FALSE]))
-    }))
+    clone_expr <- do.call(
+      cbind,
+      lapply(clone_ids, function(cl) {
+        cl_cells <- as.character(pat_map$cell_id[pat_map$clone_id == cl])
+        cl_cells <- intersect(cl_cells, colnames(expr_subset))
+        if (length(cl_cells) == 0) {
+          return(NULL)
+        }
+        if (length(cl_cells) == 1) {
+          return(expr_subset[, cl_cells])
+        }
+        rowMeans_if_one_row(data.frame(expr_subset[, cl_cells, drop = FALSE]))
+      })
+    )
 
-    if (is.null(clone_expr) || length(clone_expr) == 0) next
+    if (is.null(clone_expr) || length(clone_expr) == 0) {
+      next
+    }
 
     if (!is.matrix(clone_expr)) {
       clone_expr <- matrix(clone_expr, nrow = nrow(expr_subset))
@@ -215,7 +235,6 @@ clone_mean_expression <- function(expression_matrix, cell_clone_map, patient_ids
 }
 
 
-
 #' Z-score scale viability values across patients
 #'
 #' Applies base R \code{scale()} to each drug column across all patients,
@@ -232,40 +251,44 @@ clone_mean_expression <- function(expression_matrix, cell_clone_map, patient_ids
 #' @return A data frame with the same structure, but drug columns z-score scaled.
 #' @export
 zscore_viability <- function(clone_viability_df, cols = NULL) {
-
   if (!"patient" %in% colnames(clone_viability_df)) {
-    stop("clone_viability_df must have a 'patient' column.")
+    cli::cli_abort("clone_viability_df must have a {.field patient} column.")
   }
 
   drug_cols <- setdiff(colnames(clone_viability_df), c("patient", "clone_id"))
 
   if (length(drug_cols) == 0) {
-    stop("No drug columns found (expected columns other than 'patient' and 'clone_id').")
+    cli::cli_abort(
+      "No drug columns found (expected columns other than {.field patient} and {.field clone_id})."
+    )
   }
 
   if (!is.null(cols)) {
     missing_cols <- setdiff(cols, drug_cols)
     if (length(missing_cols) > 0) {
-      stop("Column(s) not found in clone_viability_df: ",
-           paste(missing_cols, collapse = ", "))
+      cli::cli_abort(
+        "Column(s) not found in clone_viability_df: {paste(missing_cols, collapse = ', ')}"
+      )
     }
     drug_cols <- cols
     if (length(drug_cols) == 0) return(clone_viability_df)
   }
 
-  clone_viability_df[drug_cols] <- lapply(clone_viability_df[drug_cols], function(col) {
-    as.numeric(scale(as.numeric(col)))
-  })
+  clone_viability_df[drug_cols] <- lapply(
+    clone_viability_df[drug_cols],
+    function(col) {
+      as.numeric(scale(as.numeric(col)))
+    }
+  )
 
   return(clone_viability_df)
 }
 
 
-
 # topXPercentValue of a vector
-topXPercentValue <- function(vec, X_percentile=95){
-  vec=na.omit(vec)
-  len=length(vec)
-  vec=sort(vec)
-  vec[ceiling(len*(X_percentile/100))]
+topXPercentValue <- function(vec, X_percentile = 95) {
+  vec <- na.omit(vec)
+  len <- length(vec)
+  vec <- sort(vec)
+  vec[ceiling(len * (X_percentile / 100))]
 }

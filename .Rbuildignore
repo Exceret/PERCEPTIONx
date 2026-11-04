@@ -16,3 +16,6 @@
 ^docs$
 ^pkgdown$
 ^models$
+^[.]?air[.]toml$
+^\.vscode$
+^jarl\.toml$
