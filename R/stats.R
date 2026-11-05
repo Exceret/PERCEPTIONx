@@ -2,7 +2,6 @@
 #'
 #' @name stats_perception
 #' @keywords internal
-#' @importFrom stats na.omit phyper p.adjust complete.cases cor pt pnorm
 NULL
 
 #' Hypergeometric test for gene list overlap
@@ -28,13 +27,13 @@ hypergeometric_test_for_twolists <- function(
   global,
   lower.tail = FALSE
 ) {
-  base_in_global <- global[na.omit(match(base_list, global))]
+  base_in_global <- global[stats::na.omit(match(base_list, global))]
   test_in_global <- test_list[!is.na(match(test_list, global))]
   overlap <- test_in_global[!is.na(match(test_in_global, base_in_global))]
   # q is offset by 1 only for the upper tail (P(X >= x)); the lower tail
   # (P(X <= x)) must use the observed overlap itself.
-  q <- if (lower.tail) length(overlap) else length(overlap) - 1
-  phyper(
+  q <- if (lower.tail) length(overlap) else length(overlap) - 1L
+  stats::phyper(
     q = q,
     m = length(base_in_global),
     n = length(global) - length(base_in_global),
@@ -53,7 +52,7 @@ hypergeometric_test_for_twolists <- function(
 #' @return A numeric vector of FDR-adjusted p-values (q-values).
 #' @export
 fdrcorr <- function(test_list) {
-  p.adjust(test_list, method = "fdr")
+  stats::p.adjust(test_list, method = "fdr")
 }
 
 
@@ -96,7 +95,7 @@ fdrcorr <- function(test_list) {
 rank_normalization_mat <- function(mat) {
   apply(
     mat,
-    2,
+    2L,
     function(x) rank(x, ties.method = "average") / length(x)
   )
 }
@@ -111,21 +110,21 @@ rank_normalization_mat <- function(mat) {
 #' @return A numeric vector scaled between 0 and 1.
 #' @export
 range01 <- function(x) {
-  substitute_of_Min <- topXPercentValue(vec = x, X_percentile = 5)
-  substitute_of_Max <- topXPercentValue(vec = x, X_percentile = 95)
+  substitute_of_Min <- topXPercentValue(vec = x, X_percentile = 5L)
+  substitute_of_Max <- topXPercentValue(vec = x, X_percentile = 95L)
   denom <- substitute_of_Max - substitute_of_Min
-  if (!is.finite(denom) || denom == 0) {
+  if (!is.finite(denom) || denom == 0L) {
     # No spread between the 5th and 95th percentiles — the vector is
     # effectively constant. This is common for sparse/unexpressed genes whose
     # 5th and 95th percentiles are BOTH 0 (expressed in <=5% of cells). Map
     # to 0 (the minimum of the scale = "not expressed / no signal"), NOT the
     # neutral 0.5 — 0.5 made every unexpressed gene glow medium-yellow in the
     # Gene Expression plot, looking like a median bug.
-    return(rep(0, length(x)))
+    return(rep(0L, length(x)))
   }
   x_scaled <- (x - substitute_of_Min) / denom
-  x_scaled[x_scaled < 0] <- 0
-  x_scaled[x_scaled > 1] <- 1
+  x_scaled[x_scaled < 0L] <- 0L
+  x_scaled[x_scaled > 1L] <- 1L
   x_scaled
 }
 
@@ -164,7 +163,7 @@ clone_mean_expression <- function(
 
   # Filter to cells present in both expression matrix and mapping
   common_cells <- intersect(cell_ids, as.character(cell_clone_map$cell_id))
-  if (length(common_cells) == 0) {
+  if (length(common_cells) == 0L) {
     cli::cli_abort(
       "No matching cells between expression matrix and cell_clone_map."
     )
@@ -194,7 +193,7 @@ clone_mean_expression <- function(
     pat_cells <- names(patient_ids[patient_ids == pat])
     pat_map <- cell_clone_map[cell_clone_map$cell_id %in% pat_cells, ]
 
-    if (nrow(pat_map) == 0) {
+    if (nrow(pat_map) == 0L) {
       next
     }
 
@@ -204,23 +203,23 @@ clone_mean_expression <- function(
       lapply(clone_ids, function(cl) {
         cl_cells <- as.character(pat_map$cell_id[pat_map$clone_id == cl])
         cl_cells <- intersect(cl_cells, colnames(expr_subset))
-        if (length(cl_cells) == 0) {
+        if (length(cl_cells) == 0L) {
           return(NULL)
         }
-        if (length(cl_cells) == 1) {
+        if (length(cl_cells) == 1L) {
           return(expr_subset[, cl_cells])
         }
         rowMeans_if_one_row(data.frame(expr_subset[, cl_cells, drop = FALSE]))
       })
     )
 
-    if (is.null(clone_expr) || length(clone_expr) == 0) {
+    if (is.null(clone_expr) || length(clone_expr) == 0L) {
       next
     }
 
     if (!is.matrix(clone_expr)) {
       clone_expr <- matrix(clone_expr, nrow = nrow(expr_subset))
-      colnames(clone_expr) <- clone_ids[1]
+      colnames(clone_expr) <- clone_ids[1L]
       rownames(clone_expr) <- rownames(expr_subset)
     } else {
       colnames(clone_expr) <- clone_ids
@@ -257,7 +256,7 @@ zscore_viability <- function(clone_viability_df, cols = NULL) {
 
   drug_cols <- setdiff(colnames(clone_viability_df), c("patient", "clone_id"))
 
-  if (length(drug_cols) == 0) {
+  if (length(drug_cols) == 0L) {
     cli::cli_abort(
       "No drug columns found (expected columns other than {.field patient} and {.field clone_id})."
     )
@@ -265,13 +264,13 @@ zscore_viability <- function(clone_viability_df, cols = NULL) {
 
   if (!is.null(cols)) {
     missing_cols <- setdiff(cols, drug_cols)
-    if (length(missing_cols) > 0) {
+    if (length(missing_cols) > 0L) {
       cli::cli_abort(
         "Column(s) not found in clone_viability_df: {paste(missing_cols, collapse = ', ')}"
       )
     }
     drug_cols <- cols
-    if (length(drug_cols) == 0) return(clone_viability_df)
+    if (length(drug_cols) == 0L) return(clone_viability_df)
   }
 
   clone_viability_df[drug_cols] <- lapply(
@@ -286,9 +285,9 @@ zscore_viability <- function(clone_viability_df, cols = NULL) {
 
 
 # topXPercentValue of a vector
-topXPercentValue <- function(vec, X_percentile = 95) {
-  vec <- na.omit(vec)
+topXPercentValue <- function(vec, X_percentile = 95L) {
+  vec <- stats::na.omit(vec)
   len <- length(vec)
   vec <- sort(vec)
-  vec[ceiling(len * (X_percentile / 100))]
+  vec[ceiling(len * (X_percentile / 100L))]
 }

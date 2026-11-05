@@ -69,12 +69,12 @@ cor.test_trimmed_v0.default <-
     if (!is.numeric(y)) {
       cli::cli_abort("{.arg y} must be a numeric vector.")
     }
-    OK <- complete.cases(x, y)
+    OK <- stats::complete.cases(x, y)
     x <- x[OK]
     y <- y[OK]
     n <- length(x)
 
-    NVAL <- 0
+    NVAL <- 0L
     # conf.int <- FALSE
 
     if (method == "pearson") {
@@ -83,11 +83,11 @@ cor.test_trimmed_v0.default <-
       }
       method <- "Pearson's product-moment correlation"
       names(NVAL) <- "correlation"
-      r <- cor(x, y)
+      r <- if (rlang::is_installed("WGCNA")) WGCNA::cor(x, y) else stats::cor(x, y)
       df <- n - 2L
       ESTIMATE <- c(cor = r)
       PARAMETER <- c(df = df)
-      STATISTIC <- c(t = sqrt(df) * r / sqrt(1 - r^2))
+      STATISTIC <- c(t = sqrt(df) * r / sqrt(1L - r^2L))
       # Do not compute confidence Int
       # if(n > 3) { ## confidence int.
       #   if(!missing(conf.level) &&
@@ -108,10 +108,10 @@ cor.test_trimmed_v0.default <-
       # }
       PVAL <- switch(
         alternative,
-        "less" = pt(STATISTIC, df),
-        "greater" = pt(STATISTIC, df, lower.tail = FALSE),
-        "two.sided" = 2 *
-          min(pt(STATISTIC, df), pt(STATISTIC, df, lower.tail = FALSE))
+        "less" = stats::pt(STATISTIC, df),
+        "greater" = stats::pt(STATISTIC, df, lower.tail = FALSE),
+        "two.sided" = 2L *
+          min(stats::pt(STATISTIC, df), stats::pt(STATISTIC, df, lower.tail = FALSE))
       )
     }
 
@@ -169,16 +169,20 @@ cor.test_trimmed_v0.formula <- function(
   if (is.matrix(eval(m$data, parent.frame()))) {
     m$data <- as.data.frame(data)
   }
-  ## need stats:: for non-standard evaluation
+  ## need stats::for non-standard evaluation
   m[[1L]] <- quote(stats::model.frame)
   m$... <- NULL
-  mf <- eval(m, environment(formula))
+  mf <- eval(m, parent.frame())
   if (length(mf) != 2L) {
     cli::cli_abort("Invalid {.arg formula}.")
   }
   DNAME <- paste(names(mf), collapse = " and ")
   names(mf) <- c("x", "y")
-  y <- do.call("cor.test_trimmed_v0", c(mf, list(...)))
-  y$data.name <- DNAME
-  y
+  # Splice the model frame as named `x`/`y` arguments (equivalent to
+  # do.call(..., c(mf, list(...)))); passing `mf` unspliced would dispatch
+  # to the default method with a single data.frame argument.
+  args <- c(as.list(mf), rlang::list2(...))
+  res <- rlang::exec(cor.test_trimmed_v0, !!!args)
+  res$data.name <- DNAME
+  res
 }

@@ -26,7 +26,7 @@ run_seurat_pipeline <- function(
   resolution,
   seed,
   progress_cb = NULL,
-  cluster_algorithm = 1,
+  cluster_algorithm = 1L,
   variable_selection = c("vst", "dispersion", "mvp")
 ) {
   lifecycle::deprecate_soft("0.3.1", "run_seurat_pipeline()")
@@ -46,7 +46,7 @@ run_seurat_pipeline <- function(
   so <- Seurat::NormalizeData(
     so,
     normalization.method = "LogNormalize",
-    scale.factor = 10000
+    scale.factor = 10000L
   )
   notify("variable-features")
   # vst is the most accurate but by far the slowest variable-feature method
@@ -62,10 +62,10 @@ run_seurat_pipeline <- function(
 
   # PCA requires npcs < min(nrow, ncol) of the scaled matrix -- cap dims to the
   # number actually available so small datasets do not error out.
-  max_pcs <- min(ncol(so), length(Seurat::VariableFeatures(object = so))) - 1
+  max_pcs <- min(ncol(so), length(Seurat::VariableFeatures(object = so))) - 1L
   actual_dims <- min(dims, max_pcs)
-  if (actual_dims < 1) {
-    actual_dims <- 1
+  if (actual_dims < 1L) {
+    actual_dims <- 1L
   }
 
   if (actual_dims < dims) {
@@ -117,21 +117,21 @@ run_seurat_pipeline <- function(
     # uwot requires n_neighbors < number of points; cap it for tiny datasets
     # so a small test matrix (<= 15 cells) does not crash with an Annoy
     # index error.
-    n_neighbors <- min(15, max(2L, nrow(pca_emb) - 1L))
+    n_neighbors <- min(15L, max(2L, nrow(pca_emb) - 1L))
     coords <- uwot::umap(
       X = pca_emb,
       n_neighbors = n_neighbors,
-      n_components = 2,
-      n_epochs = 200,
-      n_trees = 10,
+      n_components = 2L,
+      n_epochs = 200L,
+      n_trees = 10L,
       metric = "cosine",
-      learning_rate = 1,
+      learning_rate = 1L,
       min_dist = 0.3,
-      spread = 1,
-      set_op_mix_ratio = 1,
-      local_connectivity = 1,
-      repulsion_strength = 1,
-      negative_sample_rate = 5,
+      spread = 1L,
+      set_op_mix_ratio = 1L,
+      local_connectivity = 1L,
+      repulsion_strength = 1L,
+      negative_sample_rate = 5L,
       n_threads = n_threads,
       verbose = FALSE
     )
@@ -196,14 +196,14 @@ run_seurat_pipeline <- function(
 annotate_clones <- function(
   method = c("umap", "tsne"),
   expression_matrix,
-  min_cells = 3,
-  min_features = 200,
-  nfeatures = 2000,
-  dims = 10,
+  min_cells = 3L,
+  min_features = 200L,
+  nfeatures = 2000L,
+  dims = 10L,
   resolution = 0.8,
-  seed = 42,
+  seed = 42L,
   progress_cb = NULL,
-  cluster_algorithm = 1,
+  cluster_algorithm = 1L,
   variable_selection = c("vst", "dispersion", "mvp")
 ) {
   method <- rlang::arg_match(method)
@@ -229,12 +229,11 @@ annotate_clones <- function(
   cluster_ids <- Seurat::Idents(so)
   emb <- Seurat::Embeddings(so, reduction = method)
 
-  data.frame(
+  data.table::data.table(
     cell_id = names(cluster_ids),
     clone_id = as.character(cluster_ids),
-    dim_1 = emb[, 1],
-    dim_2 = emb[, 2],
-    stringsAsFactors = FALSE
+    dim_1 = emb[, 1L],
+    dim_2 = emb[, 2L]
   )
 }
 
@@ -262,28 +261,37 @@ build_clone_counts <- function(cell_clone_map, patient_ids) {
     )
   }
 
-  map_df <- data.frame(
+  map_dt <- data.table::data.table(
     patient = patient_ids,
-    clone_id = cell_clone_map$clone_id,
     # Clone names are only unique *within* a patient (e.g. "Kydar01_c1" and
     # "Kydar02_c1" both shorten to "c1"). Keying the abundance columns on
     # "patient@@clone" keeps them aligned with the clone_expression_rnorm
     # columns and prevents abundance from being summed across patients.
-    clone_key = paste(patient_ids, cell_clone_map$clone_id, sep = "@@"),
-    stringsAsFactors = FALSE
+    clone_key = paste(patient_ids, cell_clone_map$clone_id, sep = "@@")
   )
 
-  all_keys <- unique(map_df$clone_key)
-  all_patients <- unique(patient_ids)
+  all_patients <- unique(map_dt$patient)
+  all_keys <- unique(map_dt$clone_key)
 
-  result <- data.frame(patients = all_patients, stringsAsFactors = FALSE)
-  for (cl in all_keys) {
-    result[[cl]] <- sapply(all_patients, function(pat) {
-      sum(map_df$patient == pat & map_df$clone_key == cl)
-    })
-  }
+  # Count cells per (patient, clone) pair, then pivot wide so that every clone
+  # key becomes a column of per-patient abundances.
+  patient <- clone_key <- NULL # * ease checking NOTE
+  counts <- map_dt[, list(n_cells = .N), by = list(patient, clone_key)]
+  counts <- data.table::dcast(
+    counts,
+    patient ~ clone_key,
+    value.var = "n_cells",
+    fill = 0L
+  )
 
-  result
+  # dcast sorts the clone keys; restore first-appearance column order so the
+  # columns line up with the clone_expression_rnorm columns.
+  data.table::setnames(counts, "patient", "patients")
+  data.table::setcolorder(counts, c("patients", all_keys))
+
+  # Plain data.frame is the documented contract: predict_patients() subsets it
+  # as clone_counts[i, clone_cols], which is data.frame (not data.table) syntax.
+  as.data.frame(counts)
 }
 
 
@@ -403,14 +411,14 @@ prepare_data <- function(
   patient_col = "patient_id",
   parse_patient = FALSE,
   patient_sep = "_",
-  patient_pos = 1,
+  patient_pos = 1L,
   genes_to_use = NULL,
   seurat_resolution = 0.8,
-  seurat_dims = 10,
-  seurat_nfeatures = 2000,
-  seurat_min_cells = 3,
-  seurat_min_features = 200,
-  seurat_seed = 42,
+  seurat_dims = 10L,
+  seurat_nfeatures = 2000L,
+  seurat_min_cells = 3L,
+  seurat_min_features = 200L,
+  seurat_seed = 42L,
   skip_clustering = FALSE,
   progress_cb = NULL
 ) {
@@ -440,7 +448,12 @@ prepare_data <- function(
   }
 
   # --- Convert patient_mapping to list format if data frame ---
-  if (is.data.frame(patient_mapping)) {
+  if (
+    is.data.frame(patient_mapping) || data.table::is.data.table(patient_mapping)
+  ) {
+    # Copy, so that set-by-reference edits below never touch the caller's object.
+    patient_mapping <- data.table::as.data.table(patient_mapping)
+
     # Optional per-clone abundance column (count / cells / n_cells /
     # n_cells_per_clone / abundance): expand each row to that many rows so that
     # clone weights reflect TRUE cell numbers instead of equal 1/n per clone.
@@ -452,25 +465,23 @@ prepare_data <- function(
       c("count", "cells", "n_cells", "n_cells_per_clone", "abundance"),
       tolower(colnames(patient_mapping))
     )
-    if (length(count_col) > 0) {
+    if (length(count_col) > 0L) {
       cnt_col <- colnames(patient_mapping)[
-        tolower(colnames(patient_mapping)) == count_col[1]
-      ][1]
+        tolower(colnames(patient_mapping)) == count_col[1L]
+      ][1L]
       cnt <- suppressWarnings(as.numeric(patient_mapping[[cnt_col]]))
-      cnt[is.na(cnt) | cnt < 1] <- 1L
-      patient_mapping <- patient_mapping[
-        rep(seq_len(nrow(patient_mapping)), cnt),
-        ,
-        drop = FALSE
-      ]
-      patient_mapping[[cnt_col]] <- NULL
-      rownames(patient_mapping) <- NULL
+      cnt[is.na(cnt) | cnt < 1L] <- 1L
+      patient_mapping <- patient_mapping[rep(
+        seq_len(nrow(patient_mapping)),
+        cnt
+      )]
+      patient_mapping[, (cnt_col) := NULL]
       cli::cli_progress_step(
         "Expanded mapping by '{cnt_col}' to {nrow(patient_mapping)} rows (true clone abundance)"
       )
     }
 
-    if (!cell_col %in% colnames(patient_mapping)) {
+    if (!cell_col %chin% colnames(patient_mapping)) {
       cli::cli_abort(
         "patient_mapping data frame must have a column named '{cell_col}'"
       )
@@ -505,17 +516,17 @@ prepare_data <- function(
       }
 
       # Add parsed patient IDs to the data frame
-      patient_mapping$patient_id_parsed <- patient_ids_parsed
+      patient_mapping[, patient_id_parsed := patient_ids_parsed]
       sample_cell_names <- split(
         patient_mapping[[cell_col]],
-        patient_mapping$patient_id_parsed
+        patient_mapping[["patient_id_parsed"]]
       )
       cli::cli_progress_step(
         "Parsed {length(unique(patient_ids_parsed))} unique patient IDs"
       )
     } else {
       # Use existing patient_col
-      if (!patient_col %in% colnames(patient_mapping)) {
+      if (!patient_col %chin% colnames(patient_mapping)) {
         cli::cli_abort(
           c(
             "patient_mapping data frame must have a column named '{patient_col}'",
@@ -553,27 +564,25 @@ prepare_data <- function(
     # clone abundances reflect TRUE cell counts (matching the paper's figures)
     # instead of equal weights per clone. If the mapping is 1:1 with the matrix
     # columns (legacy equal-weight case) the behavior is unchanged.
-    sample_cell_ids <- NULL
-    if (is.list(sample_cell_names)) {
-      sample_cell_ids <- unlist(sample_cell_names, use.names = FALSE)
+    sample_cell_ids <- if (is.list(sample_cell_names)) {
+      unlist(sample_cell_names, use.names = FALSE)
     } else if (is.character(sample_cell_names)) {
-      sample_cell_ids <- sample_cell_names
+      sample_cell_names
+    } else {
+      NULL
     }
+
     if (
       !is.null(sample_cell_ids) &&
-        anyDuplicated(sample_cell_ids) > 0 &&
+        anyDuplicated(sample_cell_ids) > 0L &&
         all(cn %in% sample_cell_ids)
     ) {
-      cell_clone_map <- data.frame(
+      cell_clone_map <- data.table::data.table(
         cell_id = sample_cell_ids,
-        clone_id = sample_cell_ids,
-        stringsAsFactors = FALSE
+        clone_id = sample_cell_ids
       )
-      cell_clone_map <- cell_clone_map[
-        cell_clone_map$cell_id %in% cn,
-        ,
-        drop = FALSE
-      ]
+      cell_id <- NULL # ease check NOTE
+      cell_clone_map <- cell_clone_map[cell_id %in% cn]
       cli::cli_progress_step(
         "Using cell-count-resolved mapping: {nrow(cell_clone_map)} cells across {length(unique(cell_clone_map$cell_id))} clones"
       )
@@ -581,10 +590,9 @@ prepare_data <- function(
       # Keep the full column name as the unique clone identity (e.g. "Kydar01_c1").
       # This is universal: clone names are whatever the user's data uses. Patient
       # separation is guaranteed downstream via "patient@@clone" keys.
-      cell_clone_map <- data.frame(
+      cell_clone_map <- data.table::data.table(
         cell_id = cn,
-        clone_id = cn,
-        stringsAsFactors = FALSE
+        clone_id = cn
       )
       cli::cli_progress_step("Using {length(cn)} provided clone columns")
     }
@@ -595,13 +603,13 @@ prepare_data <- function(
     # Auto-adjust min_features and nfeatures if gene count is small
     n_genes <- nrow(expression_matrix)
     if (n_genes < seurat_min_features) {
-      seurat_min_features <- max(1, floor(n_genes * 0.1))
+      seurat_min_features <- max(1L, floor(n_genes * 0.1))
       cli::cli_progress_step(
         "Adjusting min_features to {seurat_min_features} (only {n_genes} genes in expression matrix)"
       )
     }
     if (n_genes < seurat_nfeatures) {
-      seurat_nfeatures <- max(10, n_genes)
+      seurat_nfeatures <- max(10L, n_genes)
       cli::cli_progress_step(
         "Adjusting nfeatures to {seurat_nfeatures} (only {n_genes} genes available)"
       )
@@ -646,18 +654,16 @@ prepare_data <- function(
         "{sum(unassigned)} cells could not be assigned to any patient. Removing them."
       )
       keep_cells <- names(patient_ids)[!unassigned]
-      expression_matrix <- expression_matrix[, keep_cells, drop = FALSE]
+      expression_matrix <- expression_matrix[, keep_cells]
       patient_ids <- patient_ids[!unassigned]
-      cell_clone_map <- cell_clone_map[cell_clone_map$cell_id %in% keep_cells, ]
+      cell_clone_map <- cell_clone_map[cell_id %chin% keep_cells, ]
     }
   }
   cli::cli_progress_step("Found {length(unique(patient_ids))} patients")
 
-  # Add patient column to cell_clone_map
-  cell_clone_map$patient <- patient_ids[match(
-    cell_clone_map$cell_id,
-    names(patient_ids)
-  )]
+  # Add patient column to cell_clone_map; patient_ids is named by cell id, so the
+  # lookup needs no match().
+  cell_clone_map[, patient := unname(patient_ids[cell_id])]
 
   # In clone-level mode, refine the clone label to the per-patient category
   # (e.g. "Kydar01_c1" -> "c1") using the KNOWN patient id, so clone keys
@@ -665,19 +671,18 @@ prepare_data <- function(
   # when the cell name actually starts with its patient id; any other naming
   # scheme keeps the full name, so the behavior is universal.
   if (isTRUE(skip_clustering)) {
-    cell_clone_map$clone_id <- vapply(
-      seq_len(nrow(cell_clone_map)),
-      function(i) {
-        cell <- cell_clone_map$cell_id[i]
-        pat <- cell_clone_map$patient[i]
-        if (is.na(pat) || !startsWith(cell, pat)) {
-          return(cell)
-        }
-        rest <- sub("^[\\._-]", "", substring(cell, nchar(pat) + 1))
-        if (nchar(rest) == 0) cell else rest
-      },
-      character(1)
-    )
+    clone_id <- patient <- cell_id <- NULL # ease checking NOTE
+    cell_clone_map[,
+      clone_id := {
+        has_prefix <- !is.na(patient) & startsWith(cell_id, patient)
+        stripped <- sub(
+          "^[\\._-]",
+          "",
+          substring(cell_id, nchar(patient) + 1L)
+        )
+        data.table::fifelse(has_prefix & nzchar(stripped), stripped, cell_id)
+      }
+    ]
   }
 
   # --- Step 3: Compute clone-level mean expression ---
@@ -688,7 +693,7 @@ prepare_data <- function(
     patient_ids = patient_ids
   )
 
-  if (length(clone_expr_list) == 0) {
+  if (length(clone_expr_list) == 0L) {
     cli::cli_abort(
       "No clone expression matrices were produced. Check cell-clone mapping."
     )
@@ -704,7 +709,7 @@ prepare_data <- function(
   cli::cli_progress_step("[4/5] Rank-normalizing clone expression...")
   if (!is.null(genes_to_use)) {
     available_genes <- intersect(genes_to_use, rownames(clone_expr_merged))
-    if (length(available_genes) == 0) {
+    if (length(available_genes) == 0L) {
       rlang::abort(
         "None of the provided genes_to_use were found in the expression matrix."
       )

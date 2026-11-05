@@ -87,6 +87,10 @@ startup_message_allowed <- function() {
 }
 
 ## usethis namespace: start
+#' @importFrom data.table .N
+#' @importFrom data.table %chin%
+#' @importFrom data.table :=
+#' @importFrom data.table .SD
 ## usethis namespace: end
 NULL
 

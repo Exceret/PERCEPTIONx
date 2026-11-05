@@ -2,10 +2,6 @@
 #'
 #' @name train_perception
 #' @keywords internal
-#' @importFrom stats cor.test predict aggregate setNames na.omit median
-#' @importFrom utils head
-#' @importFrom glmnet glmnet
-#' @importFrom randomForest randomForest
 NULL
 
 #' Get specific drug response data for cell-lines
@@ -44,20 +40,20 @@ get_response_matrix <- function(infunc_drugName) {
     ]
     infunc_drugName_screenID_trimmed <- substring(
       infunc_drugName_screenID,
-      0,
-      3
+      0L,
+      3L
     )
 
     if (
-      sum(infunc_drugName_screenID_trimmed == 'HTS') == 1 &
-        sum(infunc_drugName_screenID_trimmed == 'MTS') == 1
+      sum(infunc_drugName_screenID_trimmed == 'HTS') == 1L &&
+        sum(infunc_drugName_screenID_trimmed == 'MTS') == 1L
     ) {
       infunc_response <- infunc_response[
         infunc_drugName_screenID_trimmed == 'MTS',
       ]
     } else if (
-      sum(infunc_drugName_screenID_trimmed == 'HTS') == 1 &
-        sum(infunc_drugName_screenID_trimmed == 'MTS') > 1
+      sum(infunc_drugName_screenID_trimmed == 'HTS') == 1L &&
+        sum(infunc_drugName_screenID_trimmed == 'MTS') > 1L
     ) {
       infunc_response <- infunc_response[
         infunc_drugName_screenID_trimmed == 'MTS',
@@ -69,8 +65,8 @@ get_response_matrix <- function(infunc_drugName) {
       # NA count they are averaged ACROSS cell lines. (rowMeans here would
       # collapse to one scalar per batch and destroy cell-line granularity.)
     } else if (
-      sum(infunc_drugName_screenID_trimmed == 'HTS') == 0 &
-        sum(infunc_drugName_screenID_trimmed == 'MTS') > 1
+      sum(infunc_drugName_screenID_trimmed == 'HTS') == 0L &&
+        sum(infunc_drugName_screenID_trimmed == 'MTS') > 1L
     ) {
       infunc_response <- infunc_response[
         count_row_NAs(infunc_response) == min(count_row_NAs(infunc_response)),
@@ -262,16 +258,20 @@ feature_ranking_bulk <- function(
 
   ok <- !is.na(X) # per-gene complete-cell mask
   n_eff <- rowSums(ok)
-  r <- as.numeric(cor(t(X), y, use = "pairwise.complete.obs"))
+  r <- if (rlang::is_installed("WGCNA")) {
+    as.numeric(WGCNA::cor(t(X), y, use = "pairwise.complete.obs"))
+  } else {
+    as.numeric(stats::cor(t(X), y, use = "pairwise.complete.obs"))
+  }
   df <- n_eff - 2L
-  t_stat <- sqrt(df) * r / sqrt(1 - r^2)
-  pval <- 2 * pt(-abs(t_stat), df)
+  t_stat <- sqrt(df) * r / sqrt(1L - r^2L)
+  pval <- 2L * stats::pt(-abs(t_stat), df)
   pval[!is.finite(t_stat) | is.na(r) | df < 1L] <- NA
   r[!is.finite(t_stat)] <- NA # constant rows (sd = 0) -> NA, like cor.test
 
   cor_profile <- cbind(p.value = pval, estimate.cor = r)
   rownames(cor_profile) <- rownames(X)
-  cor_profile <- cor_profile[order(abs(cor_profile[, 2]), decreasing = TRUE), ]
+  cor_profile <- cor_profile[order(abs(cor_profile[, 2L]), decreasing = TRUE), ]
 
   return(cor_profile)
 }
@@ -300,7 +300,7 @@ run_parallel_feature_ranking_bulk <- function(
   id_cancerType = "PanCan",
   infunc_exclude_cancer = "PanCan",
   infunc_GOI,
-  ncores = 4
+  ncores = 4L
 ) {
   idx <- seq_along(infunc_DrugsToUse)
 
@@ -352,16 +352,16 @@ build_on_BULK_v2 <- function(
   infunc_cancerType = "PanCan",
   exclude_cancer = "PanCan",
   infunc_features,
-  single_best = infunc_features[1],
-  k_features = 100,
-  infunc_alpha = 1,
+  single_best = infunc_features[1L],
+  k_features = 100L,
+  infunc_alpha = 1L,
   model_type = "glmnet",
-  num_folds = 3,
-  num_tree = 500,
-  seed = 1,
+  num_folds = 3L,
+  num_tree = 500L,
+  seed = 1L,
   alpha_gradient = 0.05,
-  lambda_gradient = 20,
-  lambda_range = c(0.0001, 1),
+  lambda_gradient = 20L,
+  lambda_range = c(0.0001, 1L),
   cv_method = "cv"
 ) {
   # Get drug response
@@ -374,7 +374,7 @@ build_on_BULK_v2 <- function(
     exclude_cancer = exclude_cancer,
     infunc_response = infunc_response,
     force_add_cellLines = TRUE
-  )[[1]]
+  )[[1L]]
 
   # Get test cell lines (excluded from training)
   cellLines2remove <- get_cellLine_list(
@@ -382,7 +382,7 @@ build_on_BULK_v2 <- function(
     infunc_drugName = infunc_drugName,
     exclude_cancer = exclude_cancer,
     infunc_response = infunc_response
-  )[[2]]
+  )[[2L]]
 
   # Check consistency between rnorm matrices
   if (nrow(DepMap$expression_rnorm) != nrow(DepMap$scRNA_subset_rnorm)) {
@@ -395,8 +395,8 @@ build_on_BULK_v2 <- function(
   ############
   # Train Data: on bulk
   ##########
-  Train_infunc_features_id <- head(
-    na.omit(match(infunc_features, rownames(DepMap$expression_rnorm))),
+  Train_infunc_features_id <- utils::head(
+    stats::na.omit(match(infunc_features, rownames(DepMap$expression_rnorm))),
     k_features
   )
   Train_features <- t(DepMap$expression_rnorm[
@@ -408,9 +408,9 @@ build_on_BULK_v2 <- function(
   Train_Target_Label <- unlist(Train_Target_Label[which(
     !is.na(Train_Target_Label)
   )])
-  Train_features <- Train_features[which(Train_Target_Label < 10^100), ]
+  Train_features <- Train_features[which(Train_Target_Label < 10L^100L), ]
   Train_Target_Label <- unlist(Train_Target_Label[which(
-    Train_Target_Label < 10^100
+    Train_Target_Label < 10L^100L
   )])
 
   ############
@@ -424,8 +424,8 @@ build_on_BULK_v2 <- function(
       names(infunc_response)
     )
   )
-  Test_infunc_features_id <- head(
-    na.omit(match(infunc_features, rownames(DepMap$scRNA_subset_rnorm))),
+  Test_infunc_features_id <- utils::head(
+    stats::na.omit(match(infunc_features, rownames(DepMap$scRNA_subset_rnorm))),
     k_features
   )
   Test_features <- t(DepMap$scRNA_subset_rnorm[
@@ -449,8 +449,8 @@ build_on_BULK_v2 <- function(
       names(infunc_response)
     )
   )
-  Test2_infunc_features_id <- head(
-    na.omit(match(infunc_features, rownames(DepMap$expression_rnorm))),
+  Test2_infunc_features_id <- utils::head(
+    stats::na.omit(match(infunc_features, rownames(DepMap$expression_rnorm))),
     k_features
   )
   Test2_features <- t(DepMap$expression_rnorm[
@@ -476,8 +476,11 @@ build_on_BULK_v2 <- function(
         Reduce(intersect, list(cellLines2remove, names(infunc_response)))
     ]
   )
-  Test3_infunc_features_id <- head(
-    na.omit(match(infunc_features, rownames(DepMap$CPM_scRNA_CCLE_rnorm))),
+  Test3_infunc_features_id <- utils::head(
+    stats::na.omit(match(
+      infunc_features,
+      rownames(DepMap$CPM_scRNA_CCLE_rnorm)
+    )),
     k_features
   )
   Test3_features <- t(DepMap$CPM_scRNA_CCLE_rnorm[
@@ -495,7 +498,7 @@ build_on_BULK_v2 <- function(
   tc <- caret::trainControl(method = cv_method, number = num_folds)
 
   if (model_type == 'rf') {
-    tunegrid <- expand.grid(.mtry = ncol(Train_features) / seq(10, 1, -3))
+    tunegrid <- expand.grid(.mtry = ncol(Train_features) / seq(10L, 1L, -3L))
     cv.out <- suppressWarnings(caret::train(
       Train_Target_Label ~ .,
       data = data.frame(Train_Target_Label, Train_features),
@@ -506,8 +509,8 @@ build_on_BULK_v2 <- function(
     ))
   } else if (model_type == 'glmnet') {
     tunegrid <- expand.grid(
-      alpha = seq(0, 1, alpha_gradient),
-      lambda = seq(lambda_range[1], lambda_range[2], length = lambda_gradient)
+      alpha = seq(0L, 1L, alpha_gradient),
+      lambda = seq(lambda_range[1L], lambda_range[2L], length = lambda_gradient)
     )
     cv.out <- suppressWarnings(caret::train(
       Train_Target_Label ~ .,
@@ -529,37 +532,37 @@ build_on_BULK_v2 <- function(
 
   # Test on bulk (test 2)
   Test_pred_bulk <- predict(cv.out, Test2_features)
-  performance_in_bulk <- unlist(cor.test(
+  performance_in_bulk <- unlist(stats::cor.test(
     Test_pred_bulk,
     Test2_Target_Label,
     method = "pearson"
-  )[c(3, 4)])
+  )[c(3L, 4L)])
 
   # Test on pseudo-Bulk (test 1)
   Test_pred_Msc <- predict(cv.out, newdata = Test_features)
-  performance_in_pseudo_bulk <- unlist(cor.test(
+  performance_in_pseudo_bulk <- unlist(stats::cor.test(
     Test_pred_Msc,
     Test_Target_Label,
     method = "pearson"
-  )[c(3, 4)])
+  )[c(3L, 4L)])
 
   # Test on scRNA-seq (test 3)
-  Test_pred_sc <- predict(cv.out, newdata = Test3_features)
+  Test_pred_sc <- stats::predict(cv.out, newdata = Test3_features)
   cells_mapping2_cellLine <- DepMap$metadata_CPM_scRNA$DepMap_ID[
     DepMap$metadata_CPM_scRNA$NAME %in% names(Test_pred_sc)
   ]
-  Test_pred_sc_mean_byCellLine <- aggregate(
+  Test_pred_sc_mean_byCellLine <- stats::aggregate(
     Test_pred_sc ~ cells_mapping2_cellLine,
     data.frame(Test_pred_sc, cells_mapping2_cellLine),
     function(x) mean(x, na.rm = TRUE)
   )
-  performance_in_scRNA <- unlist(cor.test(
+  performance_in_scRNA <- unlist(stats::cor.test(
     Test_pred_sc_mean_byCellLine$Test_pred_sc,
     Test3_Target_Label[
       as.character(Test_pred_sc_mean_byCellLine$cells_mapping2_cellLine)
     ],
     method = "pearson"
-  )[c(3, 4)])
+  )[c(3L, 4L)])
 
   # Predictions vs ground truth
   predVSgroundTruth <- list(
@@ -642,15 +645,15 @@ train_models <- function(
   exclude_cancer = "PanCan",
   GOI = NULL,
   k_features_values = NULL,
-  ncores = 4,
+  ncores = 4L,
   output_dir = "./models",
   model_type = "glmnet",
-  num_folds = 3,
-  num_tree = 500,
-  seed = 1,
+  num_folds = 3L,
+  num_tree = 500L,
+  seed = 1L,
   alpha_gradient = 0.05,
-  lambda_gradient = 20,
-  lambda_range = c(0.0001, 1),
+  lambda_gradient = 20L,
+  lambda_range = c(0.0001, 1L),
   cv_method = "cv",
   progress_cb = NULL
 ) {
@@ -685,7 +688,7 @@ train_models <- function(
     )
   } else {
     available_genes <- intersect(GOI, rownames(DepMap$expression_20Q4))
-    if (length(available_genes) == 0) {
+    if (length(available_genes) == 0L) {
       cli::cli_abort(
         "None of the provided GOI genes were found in DepMap expression data."
       )
@@ -714,7 +717,7 @@ train_models <- function(
   # ============================================================================
   if (is.null(k_features_values)) {
     n_genes_total <- nrow(DepMap$expression_rnorm)
-    k_features_values <- n_genes_total * seq(0.0005, 0.02, length = 5)
+    k_features_values <- n_genes_total * seq(0.0005, 0.02, length = 5L)
     k_features_values <- round(k_features_values)
     cli::cli_alert_info(
       "Testing feature counts: {paste(k_features_values, collapse = ', ')}"
@@ -767,7 +770,7 @@ train_models <- function(
 
     # Check if feature ranking succeeded
     features <- features_list[[i]]
-    if (is.null(features) || (length(features) == 1 && is.na(features))) {
+    if (is.null(features) || (length(features) == 1L && is.na(features))) {
       warning("  Skipping ", drug, " - feature ranking failed.")
       for_output_lung_Test_vglm[i] <- list(NULL)
       next
@@ -780,7 +783,7 @@ train_models <- function(
       stripall2match(DepMap$secondary_screen_drugAnnotation$CommonName) ==
         stripall2match(drug)
     )
-    if (length(drug_match) == 0) {
+    if (length(drug_match) == 0L) {
       warning("  Skipping ", drug, " - drug not found in DepMap response data.")
       for_output_lung_Test_vglm[i] <- list(NULL)
       next
@@ -788,7 +791,7 @@ train_models <- function(
 
     # Iterate over k_features values (exactly like original script)
     Raw_models_output <- list()
-    id_counter <- 1
+    id_counter <- 1L
     build_failed <- FALSE
 
     for (infunc_k_features_grid in k_features_values) {
@@ -798,7 +801,7 @@ train_models <- function(
           infunc_cancerType = cancer_type,
           exclude_cancer = exclude_cancer,
           infunc_features = rownames(features),
-          single_best = rownames(features)[1],
+          single_best = rownames(features)[1L],
           k_features = infunc_k_features_grid,
           model_type = model_type,
           num_folds = num_folds,
@@ -810,25 +813,21 @@ train_models <- function(
           cv_method = cv_method
         ),
         error = function(e) {
-          warning(
-            "  build_on_BULK_v2 failed for ",
-            drug,
-            " (k=",
-            infunc_k_features_grid,
-            "): ",
-            e$message
+          cli::cli_warn(
+            "build_on_BULK_v2 failed for {drug} (k = {infunc_k_features_grid}): {e$message}"
           )
           NULL
         }
       )
-      id_counter <- id_counter + 1
+      id_counter <- id_counter + 1L
     }
 
     # Check if any models were successfully built
     if (
-      length(Raw_models_output) == 0 || all(sapply(Raw_models_output, is.null))
+      length(Raw_models_output) == 0L ||
+        all(sapply(Raw_models_output, base::is.null))
     ) {
-      warning("  Skipping ", drug, " - all model builds failed.")
+      cli::cli_warn("Skipping {drug} - all model builds failed.")
       for_output_lung_Test_vglm[i] <- list(NULL)
       next
     }
@@ -839,13 +838,13 @@ train_models <- function(
       function(x) {
         is.list(x) &&
           !is.null(x$performance_in_scRNA) &&
-          length(x$performance_in_scRNA) >= 2
+          length(x$performance_in_scRNA) >= 2L
       },
-      logical(1)
+      logical(1L)
     )
 
     if (!any(valid)) {
-      warning("  Skipping ", drug, " - all model builds failed.")
+      cli::cli_warn("Skipping {drug} - all model builds failed.")
       for_output_lung_Test_vglm[i] <- list(NULL)
       next
     }
@@ -859,12 +858,12 @@ train_models <- function(
     )
 
     # Store the Tuned model (select based on highest correlation estimate)
-    best_pos <- which.max(perf[2, ])
+    best_pos <- which.max(perf[2L, ])
     for_output_lung_Test_vglm[[i]] <- Raw_models_output[valid][[best_pos]]
 
     # Clean up
     rm(Raw_models_output)
-    gc()
+    gc(verbose = FALSE)
   }
 
   # All drugs processed — final tick so a progress bar reaches 100%.
@@ -910,7 +909,11 @@ train_models <- function(
   cli::cli_alert_success("All models saved to: {.path {save_path}}")
 
   successful <- sum(
-    !sapply(Tuned_models_output, function(x) length(x) == 1 && is.na(x))
+    !vapply(
+      Tuned_models_output,
+      function(x) length(x) == 1L && is.na(x),
+      logical(1L)
+    )
   )
   cli::cli_alert_success(
     "Training complete. Successful models: {successful} / {length(drug_list)}"

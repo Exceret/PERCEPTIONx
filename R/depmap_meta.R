@@ -32,7 +32,7 @@ extract_depmap_meta <- function(depmap_path, cache_file = NULL) {
   DepMap <- readRDS(depmap_path)
   if (!is.list(DepMap)) {
     cli::cli_abort(c(
-      x = "The file is not a {.cls list}.",
+      x = "The file is not a list.",
       i = "Expected a DepMap.RDS from the PERCEPTIONx release (or an object with the same structure)."
     ))
   }
@@ -48,7 +48,7 @@ extract_depmap_meta <- function(depmap_path, cache_file = NULL) {
     "expression_20Q4"
   )
   missing_fields <- setdiff(required_fields, names(DepMap))
-  if (length(missing_fields) > 0) {
+  if (length(missing_fields) > 0L) {
     cli::cli_abort(c(
       "The RDS is missing required components: {.field {missing_fields}}.",
       "i" = "Re-save it with these components, or use the built-in 'Download & Load' (known-good)."
@@ -61,10 +61,10 @@ extract_depmap_meta <- function(depmap_path, cache_file = NULL) {
       list(
         nrow = nrow(obj),
         ncol = ncol(obj),
-        cols_preview = head(colnames(obj), 12)
+        cols_preview = utils::head(colnames(obj), 12L)
       )
     } else {
-      list(nrow = NA_integer_, ncol = NA_integer_, cols_preview = character(0))
+      list(nrow = NA_integer_, ncol = NA_integer_, cols_preview = character(0L))
     }
   })
   names(components) <- nms

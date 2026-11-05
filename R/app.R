@@ -27,7 +27,7 @@ run_perception_app <- function() {
   if (appDir == "") {
     cli::cli_abort(c(
       x = "Could not find PERCEPTIONx dashboard. ",
-      i = "Try re-installing the package with: `install.packages('PERCEPTIONx', repos = NULL, type = 'source')`"
+      i = "Try re-installing the package with: `utils::install.packages('PERCEPTIONx', repos = NULL, type = 'source')`"
     ))
   }
 
@@ -39,7 +39,7 @@ run_perception_app <- function() {
     reason = "for PERCEPTIONx dashboard"
   )
   # Set max upload size to 1 GB (for DepMap ~567MB + models)
-  options(shiny.maxRequestSize = 1024 * 1024^2)
+  options(shiny.maxRequestSize = 1024L * 1024L^2L)
 
   # Shiny Server mode: the server runs app.R and expects a shiny app OBJECT
   # back — a nested runApp() fails there. Detect it via SHINY_PORT (Shiny

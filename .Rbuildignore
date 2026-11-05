@@ -19,3 +19,5 @@
 ^[.]?air[.]toml$
 ^\.vscode$
 ^jarl\.toml$
+\.qs2$
+^README\.Rmd$

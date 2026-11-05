@@ -9,11 +9,7 @@
 #'
 #' @name plot_perception
 #' @keywords internal
-#' @importFrom ggplot2 ggplot aes geom_point geom_segment geom_boxplot geom_violin geom_bar geom_hline geom_line geom_vline geom_jitter geom_text geom_rect geom_abline coord_cartesian coord_equal theme theme_bw theme_void labs element_text element_rect element_line element_blank facet_grid facet_wrap vars scale_colour_gradientn scale_colour_gradient2 scale_fill_manual scale_color_manual scale_colour_manual scale_x_discrete scale_size margin unit guide_colourbar guides guide_legend ggtitle annotate rel
 #' @importFrom rlang .data
-#' @importFrom pROC ggroc roc auc smooth
-#' @importFrom stats t.test wilcox.test
-#' @importFrom utils combn
 NULL
 
 # Column names used in aes() - declare as global variables to suppress R CMD check notes
@@ -42,7 +38,9 @@ utils::globalVariables(c(
   "Dataset",
   "y_mid",
   "Label",
-  "AUC"
+  "AUC",
+  # data.table non-standard evaluation pronoun
+  ".SD"
 ))
 
 # ---------------------------------------------------------------------------
@@ -51,48 +49,54 @@ utils::globalVariables(c(
 
 # Unified theme for all PERCEPTIONx plots: white background, subtle grid,
 # consistent font hierarchy and legend styling.
-theme_perception <- function(base_size = 11, base_family = "") {
+theme_perception <- function(base_size = 11L, base_family = "") {
   ggplot2::theme_bw(base_size = base_size, base_family = base_family) +
     ggplot2::theme(
-      panel.background = element_rect(fill = "white", color = NA),
-      plot.background = element_rect(fill = "white", color = NA),
-      panel.border = element_rect(color = "#dfe3ee", linewidth = 0.5),
-      panel.grid.major = element_line(color = "#eef0f6", linewidth = 0.4),
-      panel.grid.minor = element_blank(),
-      axis.ticks = element_line(color = "#b6becd"),
-      axis.title = element_text(face = "bold", color = "#1e2a4a"),
-      axis.text = element_text(color = "#3d4a63"),
-      plot.title = element_text(
+      panel.background = ggplot2::element_rect(fill = "white", color = NA),
+      plot.background = ggplot2::element_rect(fill = "white", color = NA),
+      panel.border = ggplot2::element_rect(color = "#dfe3ee", linewidth = 0.5),
+      panel.grid.major = ggplot2::element_line(
+        color = "#eef0f6",
+        linewidth = 0.4
+      ),
+      panel.grid.minor = ggplot2::element_blank(),
+      axis.ticks = ggplot2::element_line(color = "#b6becd"),
+      axis.title = ggplot2::element_text(face = "bold", color = "#1e2a4a"),
+      axis.text = ggplot2::element_text(color = "#3d4a63"),
+      plot.title = ggplot2::element_text(
         face = "bold",
         color = "#1e2a4a",
-        hjust = 0,
-        margin = margin(b = 4)
+        hjust = 0L,
+        margin = ggplot2::margin(b = 4L)
       ),
-      plot.subtitle = element_text(
+      plot.subtitle = ggplot2::element_text(
         color = "#5a6a8a",
-        hjust = 0,
-        margin = margin(b = 8)
+        hjust = 0L,
+        margin = ggplot2::margin(b = 8L)
       ),
-      legend.background = element_rect(fill = "white", color = NA),
-      legend.key = element_rect(fill = "white", color = NA),
-      legend.box.background = element_rect(fill = "white", color = NA),
-      legend.title = element_text(
+      legend.background = ggplot2::element_rect(fill = "white", color = NA),
+      legend.key = ggplot2::element_rect(fill = "white", color = NA),
+      legend.box.background = ggplot2::element_rect(fill = "white", color = NA),
+      legend.title = ggplot2::element_text(
         face = "bold",
         color = "#1e2a4a",
-        size = rel(0.85)
+        size = ggplot2::rel(0.85)
       ),
-      legend.text = element_text(color = "#3d4a63", size = rel(0.8)),
-      strip.background = element_rect(
+      legend.text = ggplot2::element_text(
+        color = "#3d4a63",
+        size = ggplot2::rel(0.8)
+      ),
+      strip.background = ggplot2::element_rect(
         fill = "#f6f8fc",
         color = "#dfe3ee",
         linewidth = 0.5
       ),
-      strip.text = element_text(
+      strip.text = ggplot2::element_text(
         face = "bold",
         color = "#1e2a4a",
-        size = rel(0.85)
+        size = ggplot2::rel(0.85)
       ),
-      plot.margin = margin(t = 6, r = 8, b = 6, l = 6)
+      plot.margin = ggplot2::margin(t = 6L, r = 8L, b = 6L, l = 6L)
     )
 }
 
@@ -124,8 +128,8 @@ clone_palette <- function(n) {
   # More clones: evenly space hues around the wheel, anchored on the deep
   # blue of the first curated color (hue ~214 deg), with moderate chroma and
   # high-ish lightness for a soft, harmonious look.
-  hues <- (214 + seq(0, n - 1) * 360 / n) %% 360
-  unname(grDevices::hcl(h = hues, c = 65, l = 70))
+  hues <- (214L + seq(0L, n - 1L) * 360L / n) %% 360L
+  unname(grDevices::hcl(h = hues, c = 65L, l = 70L))
 }
 
 # Diverging scale for z-score / 0-1 style values: the two ends are pinned to
@@ -153,7 +157,7 @@ natural_levels <- function(x) {
         paste(p[c(TRUE, FALSE)], collapse = "")
       }
     },
-    character(1)
+    character(1L)
   )
   num <- vapply(
     parts,
@@ -164,7 +168,7 @@ natural_levels <- function(x) {
         suppressWarnings(as.integer(paste(p[c(FALSE, TRUE)], collapse = "")))
       }
     },
-    integer(1)
+    integer(1L)
   )
   num[is.na(num)] <- 0L
   lv[order(pref, num)]
@@ -224,9 +228,9 @@ plot_tsne_response <- function(
   point_size = NULL,
   colors = NULL,
   palette = c("viridis", "diverging"),
-  midpoint = 0,
+  midpoint = 0L,
   limits = NULL,
-  base_size = 11,
+  base_size = 11L,
   tooltip = TRUE,
   tooltip_col = NULL
 ) {
@@ -247,30 +251,30 @@ plot_tsne_response <- function(
 
   # Adaptive point size / alpha to prevent overplotting on large scRNA data.
   if (is.null(point_size)) {
-    point_size <- if (n_points > 50000) {
+    point_size <- if (n_points > 50000L) {
       0.4
-    } else if (n_points > 20000) {
+    } else if (n_points > 20000L) {
       0.5
-    } else if (n_points > 8000) {
+    } else if (n_points > 8000L) {
       0.6
     } else {
       0.8
     }
   }
-  point_alpha <- if (n_points > 50000) {
+  point_alpha <- if (n_points > 50000L) {
     0.35
-  } else if (n_points > 20000) {
+  } else if (n_points > 20000L) {
     0.5
-  } else if (n_points > 8000) {
+  } else if (n_points > 8000L) {
     0.65
   } else {
     0.8
   }
 
   # Downsample extremely large datasets for smooth interactive rendering.
-  if (n_points > 50000) {
-    set.seed(42)
-    keep <- sample.int(n_points, 50000)
+  if (n_points > 50000L) {
+    set.seed(42L)
+    keep <- sample.int(n_points, 50000L)
     tsne_data <- tsne_data[keep, , drop = FALSE]
     cli::cli_alert_info(
       "Downsampled to 50,000 points for rendering (n = {n_points})."
@@ -295,32 +299,35 @@ plot_tsne_response <- function(
   }
   tsne_data$data_id <- paste0("cell_", seq_len(nrow(tsne_data)))
 
-  p <- ggplot(tsne_data, aes(x = X, y = Y, color = .data[[color_var]])) +
+  p <- ggplot2::ggplot(
+    tsne_data,
+    ggplot2::aes(x = X, y = Y, color = .data[[color_var]])
+  ) +
     {
       if (tt_ok) {
         ggiraph::geom_point_interactive(
-          aes(tooltip = tooltip_text, data_id = data_id),
+          ggplot2::aes(tooltip = tooltip_text, data_id = data_id),
           size = point_size,
           alpha = point_alpha
         )
       } else {
-        geom_point(size = point_size, alpha = point_alpha)
+        ggplot2::geom_point(size = point_size, alpha = point_alpha)
       }
     } +
     theme_perception(base_size = base_size) +
-    labs(color = color_label, x = "", y = "") +
-    theme(
+    ggplot2::labs(color = color_label, x = "", y = "") +
+    ggplot2::theme(
       legend.position = "top",
-      legend.key.height = unit(0.9, "lines"),
-      legend.key.width = unit(2.6, "lines")
+      legend.key.height = ggplot2::unit(0.9, "lines"),
+      legend.key.width = ggplot2::unit(2.6, "lines")
     )
 
   if (palette == "diverging") {
     p <- p +
-      scale_colour_gradient2(
-        low = diverging_colors[1],
-        mid = diverging_colors[2],
-        high = diverging_colors[3],
+      ggplot2::scale_colour_gradient2(
+        low = diverging_colors[1L],
+        mid = diverging_colors[2L],
+        high = diverging_colors[3L],
         midpoint = midpoint,
         limits = limits
       )
@@ -329,11 +336,11 @@ plot_tsne_response <- function(
     # Pass limits through: with a fixed 0-1 scale (e.g. gene expression),
     # a constant-0 vector maps to the LOW (grey) end instead of falling to
     # the high end (red) when the data range degenerates to a single value.
-    p <- p + scale_colour_gradientn(colours = cols, limits = limits)
+    p <- p + ggplot2::scale_colour_gradientn(colours = cols, limits = limits)
   }
 
   if (!is.null(title)) {
-    p <- p + ggtitle(title)
+    p <- p + ggplot2::ggtitle(title)
   }
 
   return(p)
@@ -371,7 +378,7 @@ plot_clone_umap <- function(
   title = NULL,
   color_label = "Clone",
   point_size = NULL,
-  base_size = 11,
+  base_size = 11L,
   tooltip = TRUE,
   tooltip_col = NULL
 ) {
@@ -385,30 +392,30 @@ plot_clone_umap <- function(
 
   # Adaptive point size / alpha to prevent overplotting on large scRNA data.
   if (is.null(point_size)) {
-    point_size <- if (n_points > 50000) {
+    point_size <- if (n_points > 50000L) {
       0.4
-    } else if (n_points > 20000) {
+    } else if (n_points > 20000L) {
       0.5
-    } else if (n_points > 8000) {
+    } else if (n_points > 8000L) {
       0.6
     } else {
       0.8
     }
   }
-  point_alpha <- if (n_points > 50000) {
+  point_alpha <- if (n_points > 50000L) {
     0.35
-  } else if (n_points > 20000) {
+  } else if (n_points > 20000L) {
     0.5
-  } else if (n_points > 8000) {
+  } else if (n_points > 8000L) {
     0.65
   } else {
     0.8
   }
 
   # Downsample extremely large datasets for smooth interactive rendering.
-  if (n_points > 50000) {
-    set.seed(42)
-    keep <- sample.int(n_points, 50000)
+  if (n_points > 50000L) {
+    set.seed(42L)
+    keep <- sample.int(n_points, 50000L)
     tsne_data <- tsne_data[keep, , drop = FALSE]
     cli::cli_alert_info(
       "Downsampled to 50,000 points for rendering (n = {n_points})."
@@ -432,42 +439,45 @@ plot_clone_umap <- function(
   }
   tsne_data$data_id <- paste0("cell_", seq_len(nrow(tsne_data)))
 
-  p <- ggplot(tsne_data, aes(x = X, y = Y, color = .data[[clone_col]])) +
+  p <- ggplot2::ggplot(
+    tsne_data,
+    ggplot2::aes(x = X, y = Y, color = .data[[clone_col]])
+  ) +
     {
       if (tt_ok) {
         ggiraph::geom_point_interactive(
-          aes(tooltip = tooltip_text, data_id = data_id),
+          ggplot2::aes(tooltip = tooltip_text, data_id = data_id),
           size = point_size,
           alpha = point_alpha
         )
       } else {
-        geom_point(size = point_size, alpha = point_alpha)
+        ggplot2::geom_point(size = point_size, alpha = point_alpha)
       }
     } +
-    scale_colour_manual(
+    ggplot2::scale_colour_manual(
       values = clone_palette(length(clone_levels)),
       drop = FALSE
     ) +
     theme_perception(base_size = base_size) +
-    labs(color = color_label, x = "", y = "") +
+    ggplot2::labs(color = color_label, x = "", y = "") +
     # Compact legend: force 2 rows so a 15-clone palette (8+7) does not wrap
     # into 3+ rows and compress the plot canvas.
-    guides(
-      color = guide_legend(
-        nrow = 2,
-        keywidth = unit(0.7, "lines"),
-        keyheight = unit(0.7, "lines"),
+    ggplot2::guides(
+      color = ggplot2::guide_legend(
+        nrow = 2L,
+        keywidth = ggplot2::unit(0.7, "lines"),
+        keyheight = ggplot2::unit(0.7, "lines"),
         override.aes = list(size = 2.5)
       )
     ) +
-    theme(
+    ggplot2::theme(
       legend.position = "top",
-      legend.key.height = unit(0.7, "lines"),
-      legend.key.width = unit(0.7, "lines")
+      legend.key.height = ggplot2::unit(0.7, "lines"),
+      legend.key.width = ggplot2::unit(0.7, "lines")
     )
 
   if (!is.null(title)) {
-    p <- p + ggtitle(title)
+    p <- p + ggplot2::ggtitle(title)
   }
 
   return(p)
@@ -508,7 +518,7 @@ plot_clone_umap <- function(
 plot_clone_distribution <- function(
   clone_distribution,
   response_var = NULL,
-  base_size = 15,
+  base_size = 15L,
   tooltip = TRUE,
   tooltip_col = NULL
 ) {
@@ -545,12 +555,12 @@ plot_clone_distribution <- function(
   key_pref <- vapply(
     pat_parts,
     function(p) paste(p[c(TRUE, FALSE)], collapse = ""),
-    character(1)
+    character(1L)
   )
   key_num <- suppressWarnings(vapply(
     pat_parts,
     function(p) as.integer(paste(p[c(FALSE, TRUE)], collapse = "")),
-    integer(1)
+    integer(1L)
   ))
   key_num[is.na(key_num)] <- 0L
   clone_distribution$patients <- factor(
@@ -571,9 +581,9 @@ plot_clone_distribution <- function(
   # Adaptive x-axis labels: rotate 45 deg only when many patients would
   # otherwise overlap. The FACET STRIP labels (R/NR on top) stay horizontal.
   # All patient labels are always shown (no downsampling).
-  x_angle <- if (n_patients <= 8) 0 else 45
-  x_hjust <- if (n_patients <= 8) 0.5 else 1
-  x_vjust <- if (n_patients <= 8) 0.5 else 1
+  x_angle <- if (n_patients <= 8L) 0L else 45L
+  x_hjust <- if (n_patients <= 8L) 0.5 else 1L
+  x_vjust <- if (n_patients <= 8L) 0.5 else 1L
 
   # Tooltip for ggiraph interactivity (hover shows clone + proportion).
   tt_ok <- tooltip && requireNamespace("ggiraph", quietly = TRUE)
@@ -595,14 +605,14 @@ plot_clone_distribution <- function(
     "tooltip_text"
   }
 
-  p <- ggplot(
+  p <- ggplot2::ggplot(
     clone_distribution,
-    aes(fill = clones, y = weights, x = patients)
+    ggplot2::aes(fill = clones, y = weights, x = patients)
   ) +
     {
       if (tt_ok) {
         ggiraph::geom_bar_interactive(
-          aes(tooltip = .data[[tt_col]], data_id = .data[[tt_col]]),
+          ggplot2::aes(tooltip = .data[[tt_col]], data_id = .data[[tt_col]]),
           position = "stack",
           stat = "identity",
           width = 0.75,
@@ -610,7 +620,7 @@ plot_clone_distribution <- function(
           linewidth = 0.15
         )
       } else {
-        geom_bar(
+        ggplot2::geom_bar(
           position = "stack",
           stat = "identity",
           width = 0.75,
@@ -619,28 +629,28 @@ plot_clone_distribution <- function(
         )
       }
     } +
-    scale_fill_manual(values = clone_palette(n_clones)) +
+    ggplot2::scale_fill_manual(values = clone_palette(n_clones)) +
     theme_perception(base_size = base_size) +
-    theme(
-      axis.text.x = element_text(
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_text(
         angle = x_angle,
         hjust = x_hjust,
         vjust = x_vjust,
-        size = rel(0.8),
-        margin = margin(t = 4)
+        size = ggplot2::rel(0.8),
+        margin = ggplot2::margin(t = 4L)
       ),
       legend.position = "bottom",
-      legend.text = element_text(size = rel(0.7)),
-      legend.key.height = unit(0.7, "lines"),
+      legend.text = ggplot2::element_text(size = ggplot2::rel(0.7)),
+      legend.key.height = ggplot2::unit(0.7, "lines"),
       strip.placement = "outside",
-      strip.text = element_text(
-        angle = 0,
+      strip.text = ggplot2::element_text(
+        angle = 0L,
         hjust = 0.5,
         vjust = 0.5,
-        size = rel(0.8)
+        size = ggplot2::rel(0.8)
       )
     ) +
-    labs(y = "Clone Proportion", x = "Patients", fill = "Clone")
+    ggplot2::labs(y = "Clone Proportion", x = "Patients", fill = "Clone")
 
   # Facet by response group (R/NR) -- Y axis kept fixed (0-1) so proportions
   # are directly comparable across facets; only X is free.
@@ -648,8 +658,8 @@ plot_clone_distribution <- function(
     !is.null(response_var) && response_var %in% colnames(clone_distribution)
   ) {
     p <- p +
-      facet_grid(
-        cols = vars(.data[[response_var]]),
+      ggplot2::facet_grid(
+        cols = ggplot2::vars(.data[[response_var]]),
         shrink = TRUE,
         scales = "free_x",
         space = "free_x"
@@ -670,7 +680,7 @@ fmt_pval <- function(p) {
     return("NA")
   }
   if (p < 0.001) {
-    format(p, scientific = TRUE, digits = 2)
+    format(p, scientific = TRUE, digits = 2L)
   } else {
     sprintf("%.3f", p)
   }
@@ -758,8 +768,8 @@ plot_clone_viability <- function(
   weights_var = NULL,
   response_var = NULL,
   drug = NULL,
-  base_size = 11,
-  y_limits = c(-3, 1.2),
+  base_size = 11L,
+  y_limits = c(-3L, 1.2),
   viridis_scale = FALSE,
   tooltip = TRUE,
   tooltip_col = NULL
@@ -792,7 +802,7 @@ plot_clone_viability <- function(
         tag <- resp_short_tag(rv)
         paste0(tag, " ", pat)
       },
-      character(1)
+      character(1L)
     )
     # Two-line variant used by facet_wrap (top strip, no rotation)
     clone_viability$facet_label_wrap <- vapply(
@@ -802,7 +812,7 @@ plot_clone_viability <- function(
         tag <- resp_short_tag(rv)
         paste0(tag, "\n", pat)
       },
-      character(1)
+      character(1L)
     )
   } else {
     clone_viability$facet_label <- as.character(clone_viability$patient)
@@ -844,7 +854,7 @@ plot_clone_viability <- function(
     # size range (scale_size below), not by clamping the value.
     clone_viability$size_val <- clone_viability[[weights_var]]
   }
-  aes_mapping <- aes(
+  aes_mapping <- ggplot2::aes(
     y = .data[[viability_var]],
     x = clone_id,
     color = .data[[viability_var]]
@@ -882,12 +892,12 @@ plot_clone_viability <- function(
   y_data <- clone_viability[[viability_var]]
   y_min <- min(y_data, na.rm = TRUE)
   y_max <- max(y_data, na.rm = TRUE)
-  y_bottom <- min(0, y_min)
+  y_bottom <- min(0L, y_min)
   y_top <- y_max + (y_max - y_bottom) * 0.1
 
   # Adaptive facet layout: wrap for many patients, single-row grid otherwise
   n_patients <- length(unique(clone_viability$facet_label))
-  wrap_mode <- n_patients > 12
+  wrap_mode <- n_patients > 12L
 
   # hline data (one per facet) so ggplotly can locate the facet column
   facet_var <- if (wrap_mode) "facet_label_wrap" else "facet_label"
@@ -896,24 +906,29 @@ plot_clone_viability <- function(
     facet_var,
     drop = FALSE
   ]
-  hline_data$yintercept <- 0
+  hline_data$yintercept <- 0L
 
-  p <- ggplot(clone_viability, aes_mapping) +
-    geom_hline(
+  p <- ggplot2::ggplot(clone_viability, aes_mapping) +
+    ggplot2::geom_hline(
       data = hline_data,
-      mapping = aes(yintercept = yintercept),
+      mapping = ggplot2::aes(yintercept = yintercept),
       color = "grey60",
       linewidth = 0.3
     ) +
-    geom_segment(
-      aes(x = clone_id, xend = clone_id, y = 0, yend = .data[[viability_var]]),
+    ggplot2::geom_segment(
+      ggplot2::aes(
+        x = clone_id,
+        xend = clone_id,
+        y = 0L,
+        yend = .data[[viability_var]]
+      ),
       color = "grey40",
       linewidth = 0.35
     ) +
     {
       if (tt_ok && has_weights) {
         ggiraph::geom_point_interactive(
-          aes(
+          ggplot2::aes(
             size = size_val,
             tooltip = .data[[tt_col]],
             data_id = .data[[tt_col]]
@@ -922,30 +937,30 @@ plot_clone_viability <- function(
         )
       } else if (tt_ok) {
         ggiraph::geom_point_interactive(
-          aes(tooltip = .data[[tt_col]], data_id = .data[[tt_col]]),
+          ggplot2::aes(tooltip = .data[[tt_col]], data_id = .data[[tt_col]]),
           alpha = 0.85
         )
       } else if (has_weights) {
-        geom_point(aes(size = size_val), alpha = 0.85)
+        ggplot2::geom_point(ggplot2::aes(size = size_val), alpha = 0.85)
       } else {
-        geom_point(alpha = 0.85)
+        ggplot2::geom_point(alpha = 0.85)
       }
     } +
-    coord_cartesian(ylim = c(y_bottom, y_top)) +
+    ggplot2::coord_cartesian(ylim = c(y_bottom, y_top)) +
     theme_perception(base_size = base_size) +
-    labs(
+    ggplot2::labs(
       x = "Clones",
       y = "Predicted Viability (z-score)",
       color = "Predicted Viability",
       size = if (has_weights) "Proportion in Tumor" else NULL,
       caption = "Higher = more resistant - lower = more sensitive (stronger drug killing). Z-scores are standardized across all patients, so clones are comparable across patients."
     ) +
-    theme(
+    ggplot2::theme(
       legend.position = "top",
       legend.box = "horizontal",
-      legend.box.spacing = unit(8, "pt"),
-      legend.key.size = unit(13, "pt"),
-      axis.title.y = element_text(margin = margin(r = 6))
+      legend.box.spacing = ggplot2::unit(8L, "pt"),
+      legend.key.size = ggplot2::unit(13L, "pt"),
+      axis.title.y = ggplot2::element_text(margin = ggplot2::margin(r = 6L))
     )
 
   # Color scale: red-blue diverging by default (blue = low/sensitive, white =
@@ -956,72 +971,76 @@ plot_clone_viability <- function(
   # available via viridis_scale = TRUE.
   if (viridis_scale) {
     p <- p +
-      scale_colour_gradientn(
+      ggplot2::scale_colour_gradientn(
         colours = sequential_colors,
-        breaks = function(limits) pretty(limits, n = 4)
+        breaks = function(limits) pretty(limits, n = 4L)
       )
   } else {
     p <- p +
-      scale_colour_gradient2(
-        low = diverging_colors[1],
-        mid = diverging_colors[2],
-        high = diverging_colors[3],
-        midpoint = 0,
-        breaks = function(limits) pretty(limits, n = 4)
+      ggplot2::scale_colour_gradient2(
+        low = diverging_colors[1L],
+        mid = diverging_colors[2L],
+        high = diverging_colors[3L],
+        midpoint = 0L,
+        breaks = function(limits) pretty(limits, n = 4L)
       )
   }
 
   if (has_weights) {
     max_w <- max(clone_viability[[weights_var]], na.rm = TRUE)
-    if (!is.finite(max_w) || max_w <= 0) {
-      max_w <- 1
+    if (!is.finite(max_w) || max_w <= 0L) {
+      max_w <- 1L
     }
     # Point size = true proportion on its NATURAL 0..1 scale: a 0.8 clone is
     # always visibly larger than a 0.4 clone (no clamping). The upper range is
     # kept modest (3 instead of 5) so high-abundance clones do not dominate the
     # panel. Legend breaks span the full 0..max_w range so the legend matches
     # real circles. Tune here if the lollipop balls look too big/small.
-    size_breaks <- pretty(c(0, max_w), n = 3)
-    size_breaks <- size_breaks[size_breaks >= 0 & size_breaks <= max_w]
-    if (length(size_breaks) < 2) {
-      size_breaks <- c(0, max_w)
+    size_breaks <- pretty(c(0L, max_w), n = 3L)
+    size_breaks <- size_breaks[size_breaks >= 0L & size_breaks <= max_w]
+    if (length(size_breaks) < 2L) {
+      size_breaks <- c(0L, max_w)
     }
     p <- p +
-      scale_size(range = c(1, 3), limits = c(0, max_w), breaks = size_breaks)
+      ggplot2::scale_size(
+        range = c(1L, 3L),
+        limits = c(0L, max_w),
+        breaks = size_breaks
+      )
   } else {
-    p <- p + guides(size = "none")
+    p <- p + ggplot2::guides(size = "none")
   }
 
   if (wrap_mode) {
-    ncol <- min(6, max(2, ceiling(sqrt(n_patients) * 1.4)))
+    ncol <- min(6L, max(2L, ceiling(sqrt(n_patients) * 1.4)))
     p <- p +
-      facet_wrap(
-        reformulate(facet_var),
+      ggplot2::facet_wrap(
+        stats::reformulate(facet_var),
         scales = "free_x",
         ncol = ncol,
         drop = TRUE,
         strip.position = "top"
       ) +
-      theme(
-        strip.text = element_text(
-          angle = 0,
+      ggplot2::theme(
+        strip.text = ggplot2::element_text(
+          angle = 0L,
           hjust = 0.5,
           vjust = 0.5,
-          size = rel(0.62),
+          size = ggplot2::rel(0.62),
           lineheight = 0.9
         ),
-        axis.text.x = element_text(
-          angle = 0,
+        axis.text.x = ggplot2::element_text(
+          angle = 0L,
           hjust = 0.5,
           vjust = 0.5,
-          size = rel(0.55)
+          size = ggplot2::rel(0.55)
         ),
-        panel.spacing = unit(0.3, "lines")
+        panel.spacing = ggplot2::unit(0.3, "lines")
       )
   } else {
     p <- p +
-      facet_grid(
-        reformulate(facet_var, "."),
+      ggplot2::facet_grid(
+        stats::reformulate(facet_var, "."),
         scales = "free_x",
         shrink = TRUE,
         drop = TRUE,
@@ -1029,21 +1048,22 @@ plot_clone_viability <- function(
         switch = "x",
         as.table = TRUE
       ) +
-      theme(
-        strip.text = element_text(
-          angle = 45,
-          hjust = 0,
+      ggplot2::theme(
+        strip.text = ggplot2::element_text(
+          angle = 45L,
+          hjust = 0L,
           vjust = 0.5,
-          size = rel(0.75),
+          size = ggplot2::rel(0.75),
           lineheight = 0.9,
-          margin = margin(t = 2, b = 2, l = 4, r = 4, unit = "pt")
+          margin = ggplot2::margin(t = 2L, b = 2L, l = 4L, r = 4L, unit = "pt")
         ),
-        panel.spacing = unit(0.15, "lines")
+        panel.spacing = ggplot2::unit(0.15, "lines")
       )
   }
 
-  if (!is.null(drug) && nchar(drug) > 0) {
-    p <- p + ggtitle(drug, subtitle = sprintf("N = %d patients", n_patients))
+  if (!is.null(drug) && nchar(drug) > 0L) {
+    p <- p +
+      ggplot2::ggtitle(drug, subtitle = sprintf("N = %d patients", n_patients))
   }
 
   p
@@ -1080,20 +1100,20 @@ plot_roc_curve <- function(
   response,
   predictor,
   smooth_curve = TRUE,
-  base_size = 15,
-  auc_digits = 3,
+  base_size = 15L,
+  auc_digits = 3L,
   title = NULL,
   tooltip = TRUE
 ) {
   if (!requireNamespace("pROC", quietly = TRUE)) {
     cli::cli_abort(c(
       "Package {.pkg pROC} is required for ROC curve plotting.",
-      "i" = "Install with {.run install.packages('pROC')}."
+      "i" = "Install with {.run utils::install.packages('pROC')}."
     ))
   }
 
   # Single-class response cannot build a ROC curve -- return an informative placeholder
-  if (length(unique(response[!is.na(response)])) < 2) {
+  if (length(unique(response[!is.na(response)])) < 2L) {
     cli::cli_abort(
       "ROC curve requires at least two response classes (e.g. both R and NR)."
     )
@@ -1135,16 +1155,16 @@ plot_roc_curve <- function(
         transpose = FALSE
       )
     )
-    sp$fpr <- 1 - sp$specificity
+    sp$fpr <- 1L - sp$specificity
     sp <- sp[order(sp$fpr), ]
     sp <- sp[!duplicated(sp$fpr), ]
-    if (nrow(sp) > 2) {
+    if (nrow(sp) > 2L) {
       dens <- stats::approx(
         sp$fpr,
         sp$sensitivity,
-        xout = seq(0, 1, length.out = 200)
+        xout = seq(0L, 1L, length.out = 200L)
       )
-      curve_df <- data.frame(specificity = 1 - dens$x, sensitivity = dens$y)
+      curve_df <- data.frame(specificity = 1L - dens$x, sensitivity = dens$y)
     } else {
       curve_df <- sp
     }
@@ -1158,7 +1178,7 @@ plot_roc_curve <- function(
       )
     )
   }
-  curve_df$fpr <- 1 - curve_df$specificity
+  curve_df$fpr <- 1L - curve_df$specificity
   curve_df$tpr <- curve_df$sensitivity
   curve_df$tooltip_text <- sprintf(
     "FPR: %.3f\nTPR: %.3f",
@@ -1175,48 +1195,48 @@ plot_roc_curve <- function(
   can_line <- nrow(curve_df) >= 2L
 
   if (tt_ok) {
-    p <- ggplot(curve_df, aes(x = fpr, y = tpr))
+    p <- ggplot2::ggplot(curve_df, ggplot2::aes(x = fpr, y = tpr))
     if (can_line) {
       p <- p +
         ggiraph::geom_line_interactive(
-          aes(tooltip = tooltip_text, data_id = data_id),
+          ggplot2::aes(tooltip = tooltip_text, data_id = data_id),
           linewidth = 1.1,
           color = "#2E86AB"
         )
     }
     p <- p +
       ggiraph::geom_point_interactive(
-        aes(tooltip = tooltip_text, data_id = data_id),
+        ggplot2::aes(tooltip = tooltip_text, data_id = data_id),
         size = 1.4,
         color = "#2E86AB",
         alpha = 0.7
       )
   } else {
-    p <- ggplot(curve_df, aes(x = fpr, y = tpr))
+    p <- ggplot2::ggplot(curve_df, ggplot2::aes(x = fpr, y = tpr))
     if (can_line) {
-      p <- p + geom_line(linewidth = 1.1, color = "#2E86AB")
+      p <- p + ggplot2::geom_line(linewidth = 1.1, color = "#2E86AB")
     }
-    p <- p + geom_point(size = 1.4, color = "#2E86AB", alpha = 0.7)
+    p <- p + ggplot2::geom_point(size = 1.4, color = "#2E86AB", alpha = 0.7)
   }
 
   p <- p +
     theme_perception(base_size = base_size) +
-    labs(x = "1 - Specificity (FPR)", y = "Sensitivity (TPR)") +
-    coord_equal() +
+    ggplot2::labs(x = "1 - Specificity (FPR)", y = "Sensitivity (TPR)") +
+    ggplot2::coord_equal() +
     # Random-chance diagonal from (0,0) to (1,1)
-    annotate(
+    ggplot2::annotate(
       "segment",
-      x = 0,
-      xend = 1,
-      y = 0,
-      yend = 1,
+      x = 0L,
+      xend = 1L,
+      y = 0L,
+      yend = 1L,
       color = "grey60",
       linewidth = 0.5,
       linetype = "dashed"
     ) +
     # AUC badge in a rounded, semi-transparent box (bottom-right corner,
     # inside the region below the curve).
-    annotate(
+    ggplot2::annotate(
       "rect",
       xmin = 0.60,
       xmax = 0.98,
@@ -1227,7 +1247,7 @@ plot_roc_curve <- function(
       color = "#dfe3ee",
       linewidth = 0.3
     ) +
-    annotate(
+    ggplot2::annotate(
       "text",
       x = 0.79,
       y = 0.125,
@@ -1238,7 +1258,7 @@ plot_roc_curve <- function(
     )
 
   if (!is.null(title)) {
-    p <- p + ggtitle(title)
+    p <- p + ggplot2::ggtitle(title)
   }
 
   return(p)
@@ -1282,7 +1302,7 @@ plot_response_boxplot <- function(
   response_var = "response",
   predicted_var = "predicted_viability",
   y_label = "Predicted Viability (z-score)",
-  base_size = 15,
+  base_size = 15L,
   compare_method = "wilcox.test",
   alternative = "less",
   tooltip = TRUE
@@ -1312,7 +1332,7 @@ plot_response_boxplot <- function(
   # groups use a qualitative palette covering every level. Beyond the fixed
   # 6-color palette, generate evenly-spaced hues (ggplot2's default scheme),
   # so any number of response groups is supported.
-  n_lv <- length(levels(exp_vs_pred[[response_var]]))
+  n_lv <- nlevels(exp_vs_pred[[response_var]])
   fixed_pal <- c(
     "#C13232",
     "#2E86AB",
@@ -1325,9 +1345,9 @@ plot_response_boxplot <- function(
     grp_colors <- fixed_pal[seq_len(n_lv)]
   } else {
     grp_colors <- grDevices::hcl(
-      h = seq(15, 375, length.out = n_lv + 1)[seq_len(n_lv)],
-      c = 100,
-      l = 65
+      h = seq(15L, 375L, length.out = n_lv + 1L)[seq_len(n_lv)],
+      c = 100L,
+      l = 65L
     )
   }
   names(grp_colors) <- levels(exp_vs_pred[[response_var]])
@@ -1347,18 +1367,18 @@ plot_response_boxplot <- function(
   #               violin's silhouette,
   #   3) jitter = raw points, spread across the violin width so the dots
   #               visually match the density shape.
-  p <- ggplot(
+  p <- ggplot2::ggplot(
     exp_vs_pred,
-    aes(x = .data[[response_var]], y = .data[[predicted_var]])
+    ggplot2::aes(x = .data[[response_var]], y = .data[[predicted_var]])
   ) +
-    geom_violin(
-      aes(fill = .data[[response_var]]),
+    ggplot2::geom_violin(
+      ggplot2::aes(fill = .data[[response_var]]),
       alpha = 0.25,
       width = 0.80,
       color = "grey40",
       linewidth = 0.35
     ) +
-    geom_boxplot(
+    ggplot2::geom_boxplot(
       width = 0.14,
       outlier.shape = NA,
       fill = NA,
@@ -1368,7 +1388,7 @@ plot_response_boxplot <- function(
     {
       if (tt_ok) {
         ggiraph::geom_jitter_interactive(
-          aes(
+          ggplot2::aes(
             color = .data[[response_var]],
             tooltip = tooltip_text,
             data_id = data_id
@@ -1378,8 +1398,8 @@ plot_response_boxplot <- function(
           alpha = 0.55
         )
       } else {
-        geom_jitter(
-          aes(color = .data[[response_var]]),
+        ggplot2::geom_jitter(
+          ggplot2::aes(color = .data[[response_var]]),
           width = 0.18,
           size = 1.5,
           alpha = 0.55
@@ -1387,10 +1407,10 @@ plot_response_boxplot <- function(
       }
     } +
     theme_perception(base_size = base_size) +
-    labs(y = y_label, x = "") +
-    theme(legend.position = "none") +
-    scale_fill_manual(values = grp_colors) +
-    scale_color_manual(values = grp_colors)
+    ggplot2::labs(y = y_label, x = "") +
+    ggplot2::theme(legend.position = "none") +
+    ggplot2::scale_fill_manual(values = grp_colors) +
+    ggplot2::scale_color_manual(values = grp_colors)
 
   # Statistical annotation: pairwise bracket for 2 groups (one-sided Wilcoxon,
   # alternative = first group < second); for 3-4 groups pairwise two-sided
@@ -1398,16 +1418,20 @@ plot_response_boxplot <- function(
   # correction; for 5+ groups a single Kruskal-Wallis omnibus test (too many
   # brackets to read). A global Kruskal-Wallis only says "at least one group
   # differs" -- it cannot say WHICH pairs differ, so pairwise is used instead.
-  n_lv <- length(levels(exp_vs_pred[[response_var]]))
-  if (n_lv == 2) {
+  n_lv <- nlevels(exp_vs_pred[[response_var]])
+  if (n_lv == 2L) {
     lvls <- levels(exp_vs_pred[[response_var]])
-    grp1 <- exp_vs_pred[[predicted_var]][exp_vs_pred[[response_var]] == lvls[1]]
-    grp2 <- exp_vs_pred[[predicted_var]][exp_vs_pred[[response_var]] == lvls[2]]
-    if (length(grp1) > 1 && length(grp2) > 1) {
+    grp1 <- exp_vs_pred[[predicted_var]][
+      exp_vs_pred[[response_var]] == lvls[1L]
+    ]
+    grp2 <- exp_vs_pred[[predicted_var]][
+      exp_vs_pred[[response_var]] == lvls[2L]
+    ]
+    if (length(grp1) > 1L && length(grp2) > 1L) {
       test_fun <- if (tolower(compare_method) == "t.test") {
-        t.test
+        stats::t.test
       } else {
-        wilcox.test
+        stats::wilcox.test
       }
       wt <- tryCatch(
         test_fun(grp1, grp2, alternative = alternative),
@@ -1420,34 +1444,34 @@ plot_response_boxplot <- function(
           y_pos <- y_max +
             (y_max - min(exp_vs_pred[[predicted_var]], na.rm = TRUE)) * 0.10
           p <- p +
-            annotate(
+            ggplot2::annotate(
               "segment",
-              x = 1,
-              xend = 1,
+              x = 1L,
+              xend = 1L,
               y = y_pos * 0.985,
               yend = y_pos,
               color = "#1e2a4a",
               linewidth = 0.4
             ) +
-            annotate(
+            ggplot2::annotate(
               "segment",
-              x = 2,
-              xend = 2,
+              x = 2L,
+              xend = 2L,
               y = y_pos * 0.985,
               yend = y_pos,
               color = "#1e2a4a",
               linewidth = 0.4
             ) +
-            annotate(
+            ggplot2::annotate(
               "segment",
-              x = 1,
-              xend = 2,
+              x = 1L,
+              xend = 2L,
               y = y_pos,
               yend = y_pos,
               color = "#1e2a4a",
               linewidth = 0.4
             ) +
-            annotate(
+            ggplot2::annotate(
               "text",
               x = 1.5,
               y = y_pos * 1.03,
@@ -1457,41 +1481,41 @@ plot_response_boxplot <- function(
               fontface = "italic",
               color = "#1e2a4a"
             ) +
-            coord_cartesian(ylim = c(NA, y_pos * 1.06))
+            ggplot2::coord_cartesian(ylim = c(NA, y_pos * 1.06))
         }
       }
     }
-  } else if (n_lv > 2) {
+  } else if (n_lv > 2L) {
     test_data <- exp_vs_pred[
       !is.na(exp_vs_pred[[response_var]]) &
         !is.na(exp_vs_pred[[predicted_var]]),
     ]
     if (
-      nrow(test_data) >= 6 && length(unique(test_data[[response_var]])) >= 2
+      nrow(test_data) >= 6L && length(unique(test_data[[response_var]])) >= 2L
     ) {
       lvls <- levels(exp_vs_pred[[response_var]])
-      if (n_lv <= 4) {
+      if (n_lv <= 4L) {
         # Pairwise Wilcoxon rank-sum tests (two-sided: no directional hypothesis
         # among arbitrary groups like PD/RD/TN), BH-adjusted across all pairs.
-        combos <- combn(seq_along(lvls), 2, simplify = FALSE)
+        combos <- utils::combn(seq_along(lvls), 2L, simplify = FALSE)
         res_list <- lapply(combos, function(ij) {
           g1 <- test_data[[predicted_var]][
-            test_data[[response_var]] == lvls[ij[1]]
+            test_data[[response_var]] == lvls[ij[1L]]
           ]
           g2 <- test_data[[predicted_var]][
-            test_data[[response_var]] == lvls[ij[2]]
+            test_data[[response_var]] == lvls[ij[2L]]
           ]
-          if (length(g1) < 2 || length(g2) < 2) {
+          if (length(g1) < 2L || length(g2) < 2L) {
             return(NULL)
           }
-          wt <- tryCatch(wilcox.test(g1, g2), error = function(e) NULL)
+          wt <- tryCatch(stats::wilcox.test(g1, g2), error = function(e) NULL)
           if (is.null(wt)) {
             return(NULL)
           }
-          data.frame(i = ij[1], j = ij[2], p = wt$p.value)
+          data.frame(i = ij[1L], j = ij[2L], p = wt$p.value)
         })
         res_df <- do.call(rbind, res_list)
-        if (!is.null(res_df) && nrow(res_df) > 0) {
+        if (!is.null(res_df) && nrow(res_df) > 0L) {
           res_df$p_adj <- stats::p.adjust(res_df$p, method = "BH")
           y_max <- max(test_data[[predicted_var]], na.rm = TRUE)
           y_min <- min(test_data[[predicted_var]], na.rm = TRUE)
@@ -1503,7 +1527,7 @@ plot_response_boxplot <- function(
               x2 <- res_df$j[k]
               p_label <- sprintf("adj. p = %s", fmt_pval(res_df$p_adj[k]))
               p <- p +
-                annotate(
+                ggplot2::annotate(
                   "segment",
                   x = x1,
                   xend = x1,
@@ -1512,7 +1536,7 @@ plot_response_boxplot <- function(
                   color = "#1e2a4a",
                   linewidth = 0.4
                 ) +
-                annotate(
+                ggplot2::annotate(
                   "segment",
                   x = x2,
                   xend = x2,
@@ -1521,7 +1545,7 @@ plot_response_boxplot <- function(
                   color = "#1e2a4a",
                   linewidth = 0.4
                 ) +
-                annotate(
+                ggplot2::annotate(
                   "segment",
                   x = x1,
                   xend = x2,
@@ -1530,9 +1554,9 @@ plot_response_boxplot <- function(
                   color = "#1e2a4a",
                   linewidth = 0.4
                 ) +
-                annotate(
+                ggplot2::annotate(
                   "text",
-                  x = (x1 + x2) / 2,
+                  x = (x1 + x2) / 2L,
                   y = y_pos + span * 0.025,
                   label = p_label,
                   size = base_size * 0.28,
@@ -1542,11 +1566,11 @@ plot_response_boxplot <- function(
                 )
             }
             p <- p +
-              labs(
+              ggplot2::labs(
                 caption = "Pairwise Wilcoxon rank-sum tests (two-sided), BH-adjusted p-values"
               ) +
-              coord_cartesian(
-                ylim = c(NA, y_max + span * (0.06 + 0.07 * (nrow(res_df) + 1)))
+              ggplot2::coord_cartesian(
+                ylim = c(NA, y_max + span * (0.06 + 0.07 * (nrow(res_df) + 1L)))
               )
           }
         }
@@ -1566,9 +1590,9 @@ plot_response_boxplot <- function(
           if (is.finite(y_max) && is.finite(y_min)) {
             y_pos <- y_max + (y_max - y_min) * 0.08
             p <- p +
-              annotate(
+              ggplot2::annotate(
                 "text",
-                x = (1 + n_lv) / 2,
+                x = (1L + n_lv) / 2L,
                 y = y_pos,
                 label = p_label,
                 size = base_size * 0.3,
@@ -1576,7 +1600,7 @@ plot_response_boxplot <- function(
                 fontface = "italic",
                 color = "#1e2a4a"
               ) +
-              coord_cartesian(ylim = c(NA, y_pos * 1.10))
+              ggplot2::coord_cartesian(ylim = c(NA, y_pos * 1.10))
           }
         }
       }
@@ -1617,7 +1641,7 @@ plot_response_boxplot <- function(
 plot_model_performance <- function(
   performance_list,
   threshold_range = NULL,
-  base_size = 20,
+  base_size = 20L,
   highlight_threshold = 0.3,
   tooltip = TRUE
 ) {
@@ -1634,7 +1658,7 @@ plot_model_performance <- function(
         if (!(col %in% colnames(el))) {
           return(NULL)
         }
-        el[[col]][1]
+        el[[col]][1L]
       } else {
         if (is.null(names(el)) || !(col %in% names(el))) {
           return(NULL)
@@ -1643,7 +1667,7 @@ plot_model_performance <- function(
       }
     })
     vals <- vals[!sapply(vals, is.null)]
-    if (length(vals) == 0) {
+    if (length(vals) == 0L) {
       cli::cli_abort(
         "No performance metrics found in performance_list (missing {.field {what}})."
       )
@@ -1674,7 +1698,7 @@ plot_model_performance <- function(
     all_cors <- c(cor_scRNA, cor_bulk, cor_pseudo)
     hi <- suppressWarnings(max(
       0.6,
-      ceiling(max(all_cors, na.rm = TRUE) * 100) / 100
+      ceiling(max(all_cors, na.rm = TRUE) * 100L) / 100L
     ))
     if (!is.finite(hi) || hi <= 0.1) {
       hi <- 0.6
@@ -1730,40 +1754,40 @@ plot_model_performance <- function(
   )
   df2plot$data_id <- paste0("perf_", seq_len(nrow(df2plot)))
 
-  p <- ggplot(
+  p <- ggplot2::ggplot(
     df2plot,
-    aes(x = Predictability, y = drugProp, color = dataused)
+    ggplot2::aes(x = Predictability, y = drugProp, color = dataused)
   ) +
-    geom_vline(
+    ggplot2::geom_vline(
       xintercept = highlight_threshold,
       linetype = "dashed",
       color = "#C13232",
       alpha = 0.5,
       linewidth = 0.4
     ) +
-    geom_line(linewidth = 0.9) +
+    ggplot2::geom_line(linewidth = 0.9) +
     {
       if (tt_ok) {
         ggiraph::geom_point_interactive(
-          aes(tooltip = tooltip_text, data_id = data_id),
+          ggplot2::aes(tooltip = tooltip_text, data_id = data_id),
           size = 1.8,
           alpha = 0.85
         )
       } else {
-        geom_point(size = 1.8, alpha = 0.85)
+        ggplot2::geom_point(size = 1.8, alpha = 0.85)
       }
     } +
-    scale_color_manual(values = dataset_colors) +
+    ggplot2::scale_color_manual(values = dataset_colors) +
     theme_perception(base_size = base_size) +
-    labs(
+    ggplot2::labs(
       y = "Proportion of Drugs",
       color = "Validation Dataset",
       x = "Predictability (Pearson Correlation)"
     ) +
-    theme(
+    ggplot2::theme(
       legend.position = "top",
       legend.box = "horizontal",
-      legend.box.spacing = unit(8, "pt")
+      legend.box.spacing = ggplot2::unit(8L, "pt")
     )
 
   return(p)
@@ -1797,15 +1821,15 @@ plot_model_performance <- function(
 #' }
 #'
 #' @export
-plot_model_roc <- function(performance_list, base_size = 13) {
+plot_model_roc <- function(performance_list, base_size = 13L) {
   if (!requireNamespace("pROC", quietly = TRUE)) {
     cli::cli_abort(c(
       "Package {.pkg pROC} is required for ROC computation.",
-      "i" = "Install with {.run install.packages('pROC')}."
+      "i" = "Install with {.run utils::install.packages('pROC')}."
     ))
   }
   if (is.null(names(performance_list))) {
-    performance_list <- setNames(list(performance_list), "model")
+    performance_list <- stats::setNames(list(performance_list), "model")
   }
 
   ds_map <- c(
@@ -1828,7 +1852,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
     }
     ds_out <- lapply(names(ds_map), function(k) {
       df <- m$predVSgroundTruth[[k]]
-      if (is.null(df) || nrow(df) < 6) {
+      if (is.null(df) || nrow(df) < 6L) {
         return(list(
           rows = NULL,
           why = sprintf(
@@ -1844,14 +1868,14 @@ plot_model_roc <- function(performance_list, base_size = 13) {
           why = sprintf("%s: missing 'Observed' column", k)
         ))
       }
-      pred_col <- setdiff(colnames(df), "Observed")[1]
+      pred_col <- setdiff(colnames(df), "Observed")[1L]
       if (is.na(pred_col)) {
         return(list(rows = NULL, why = sprintf("%s: no prediction column", k)))
       }
       obs <- as.numeric(df[["Observed"]])
       pred <- as.numeric(df[[pred_col]])
       keep <- !is.na(obs) & !is.na(pred)
-      if (sum(keep) < 4) {
+      if (sum(keep) < 4L) {
         return(list(
           rows = NULL,
           why = sprintf(
@@ -1867,7 +1891,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
       # ties -- e.g. many cell lines capped at AUC = 1 for a targeted drug --
       # into a single class and makes the ROC impossible. First-tie ranks are
       # always 1..n, so the median split always yields two balanced classes.
-      if (length(unique(obs[keep])) < 2) {
+      if (length(unique(obs[keep])) < 2L) {
         return(list(
           rows = NULL,
           why = sprintf(
@@ -1902,7 +1926,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
       ))
       list(
         rows = data.frame(
-          fpr = 1 - co$specificity,
+          fpr = 1L - co$specificity,
           tpr = co$sensitivity,
           Dataset = unname(ds_map[[k]]),
           Drug = d,
@@ -1915,7 +1939,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
     reasons <- vapply(
       ds_out,
       function(x) if (is.null(x$why)) "" else x$why,
-      character(1)
+      character(1L)
     )
     reasons <- reasons[nzchar(reasons)]
     ok_rows <- do.call(rbind, lapply(ds_out, function(x) x$rows))
@@ -1928,9 +1952,9 @@ plot_model_roc <- function(performance_list, base_size = 13) {
   names(curve_rows) <- names(performance_list)
   # Drugs that produced no ROC data at all -- record them so the app can tell
   # the user instead of silently showing fewer panels.
-  dropped_drugs <- names(curve_rows)[vapply(curve_rows, is.null, logical(1))]
-  curve_rows <- curve_rows[!vapply(curve_rows, is.null, logical(1))]
-  if (length(curve_rows) == 0) {
+  dropped_drugs <- names(curve_rows)[vapply(curve_rows, is.null, logical(1L))]
+  curve_rows <- curve_rows[!vapply(curve_rows, is.null, logical(1L))]
+  if (length(curve_rows) == 0L) {
     cli::cli_abort(
       "No prediction-vs-observed data available to compute validation ROC."
     )
@@ -1968,7 +1992,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
   # collide with the AUC values there. Use compact but still readable labels --
   # the top legend spells the full names out.
   n_drugs_total <- length(unique(df$Drug))
-  short_mode <- n_drugs_total > 4
+  short_mode <- n_drugs_total > 4L
   if (short_mode) {
     ds_labels <- c(
       "bulk" = "Bulk",
@@ -2017,7 +2041,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
             Dataset = ds,
             y_mid = y_mid,
             Label = ds_labels[[ds]],
-            AUC = if (nrow(sub)) sub$AUC[1] else NA_real_,
+            AUC = if (nrow(sub)) sub$AUC[1L] else NA_real_,
             stringsAsFactors = FALSE
           )
         })
@@ -2025,18 +2049,18 @@ plot_model_roc <- function(performance_list, base_size = 13) {
     })
   )
 
-  p <- ggplot(df, aes(x = fpr, y = tpr, color = Dataset)) +
-    geom_abline(
-      slope = 1,
-      intercept = 0,
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = fpr, y = tpr, color = Dataset)) +
+    ggplot2::geom_abline(
+      slope = 1L,
+      intercept = 0L,
       linetype = "dashed",
       color = "grey55",
       linewidth = 0.35
     ) +
-    geom_line(linewidth = 0.9) +
+    ggplot2::geom_line(linewidth = 0.9) +
     # shadow layer -- constants passed directly (not aes()) so ggplot2 does not
     # warn about recycling scalar aesthetics across the per-drug rows.
-    geom_rect(
+    ggplot2::geom_rect(
       data = box_bg,
       xmin = box_x0 + 0.006,
       xmax = box_x1 + 0.006,
@@ -2048,7 +2072,7 @@ plot_model_roc <- function(performance_list, base_size = 13) {
       inherit.aes = FALSE
     ) +
     # card background
-    geom_rect(
+    ggplot2::geom_rect(
       data = box_bg,
       xmin = box_x0,
       xmax = box_x1,
@@ -2060,17 +2084,17 @@ plot_model_roc <- function(performance_list, base_size = 13) {
       inherit.aes = FALSE
     ) +
     # title "AUC" + separator line
-    geom_text(
+    ggplot2::geom_text(
       data = box_bg,
-      x = (box_x0 + box_x1) / 2,
-      y = box_y1 - header_h / 2,
+      x = (box_x0 + box_x1) / 2L,
+      y = box_y1 - header_h / 2L,
       label = "AUC",
       inherit.aes = FALSE,
       size = base_size * 0.28,
       fontface = "bold",
       color = "grey35"
     ) +
-    geom_segment(
+    ggplot2::geom_segment(
       data = box_bg,
       x = box_x0 + 0.02,
       xend = box_x1 - 0.02,
@@ -2083,43 +2107,43 @@ plot_model_roc <- function(performance_list, base_size = 13) {
     # each row: colored square marker + left-aligned dataset name + right-
     # aligned value. Marker uses geom_point (renders reliably in plotly, unlike
     # a fill-mapped geom_rect which can spread under the text).
-    geom_point(
+    ggplot2::geom_point(
       data = auc_box,
-      aes(x = swatch_x, y = y_mid, color = Dataset),
-      shape = 15,
+      ggplot2::aes(x = swatch_x, y = y_mid, color = Dataset),
+      shape = 15L,
       size = 3.2,
       inherit.aes = FALSE,
       show.legend = FALSE
     ) +
-    geom_text(
+    ggplot2::geom_text(
       data = auc_box,
-      aes(x = label_x, y = y_mid, label = Label),
+      ggplot2::aes(x = label_x, y = y_mid, label = Label),
       inherit.aes = FALSE,
-      hjust = 0,
+      hjust = 0L,
       size = label_size,
       color = "grey25"
     ) +
-    geom_text(
+    ggplot2::geom_text(
       data = auc_box,
-      aes(x = value_x, y = y_mid, label = sprintf("%.2f", AUC)),
+      ggplot2::aes(x = value_x, y = y_mid, label = sprintf("%.2f", AUC)),
       inherit.aes = FALSE,
-      hjust = 1,
+      hjust = 1L,
       size = value_size,
       fontface = "bold",
       color = "grey20"
     ) +
-    scale_color_manual(values = dataset_colors) +
-    coord_cartesian(xlim = c(0, 1.2), ylim = c(0, 1)) +
+    ggplot2::scale_color_manual(values = dataset_colors) +
+    ggplot2::coord_cartesian(xlim = c(0L, 1.2), ylim = c(0L, 1L)) +
     theme_perception(base_size = base_size) +
-    labs(
+    ggplot2::labs(
       x = "1 - Specificity (FPR)",
       y = "Sensitivity (TPR)",
       color = "Validation Dataset"
     ) +
-    theme(
+    ggplot2::theme(
       legend.position = "top",
       legend.box = "horizontal",
-      legend.box.spacing = unit(8, "pt")
+      legend.box.spacing = ggplot2::unit(8L, "pt")
     )
 
   # Multiple drugs: stack one panel per drug (full width) instead of squeezing
@@ -2128,14 +2152,14 @@ plot_model_roc <- function(performance_list, base_size = 13) {
   # while each panel stays wide enough. The UI grows the plot height to match
   # (see mod_train.R).
   n_drugs <- length(unique(df$Drug))
-  if (n_drugs > 1) {
-    roc_ncol <- if (n_drugs <= 4) 1 else 2
-    p <- p + facet_wrap(~Drug, ncol = roc_ncol, strip.position = "top")
+  if (n_drugs > 1L) {
+    roc_ncol <- if (n_drugs <= 4L) 1L else 2L
+    p <- p + ggplot2::facet_wrap(~Drug, ncol = roc_ncol, strip.position = "top")
   }
 
   # Surface drugs that could not produce a ROC so the app can warn the user
   # (otherwise a missing panel looks like a rendering bug).
-  if (length(dropped_drugs) > 0) {
+  if (length(dropped_drugs) > 0L) {
     why <- dropped_reasons[dropped_drugs]
     warning(
       "Validation ROC skipped for: ",
@@ -2184,19 +2208,19 @@ plot_model_roc <- function(performance_list, base_size = 13) {
 plot_seurat_clustering <- function(
   method = c("umap", "tsne"),
   expression_matrix,
-  min_cells = 3,
-  min_features = 200,
-  nfeatures = 2000,
-  dims = 10,
+  min_cells = 3L,
+  min_features = 200L,
+  nfeatures = 2000L,
+  dims = 10L,
   resolution = 0.8,
-  seed = 1
+  seed = 1L
 ) {
   method <- rlang::arg_match(method)
 
   if (!requireNamespace("Seurat", quietly = TRUE)) {
     cli::cli_abort(c(
       "Package {.pkg Seurat} is required.",
-      "i" = "Install with {.run install.packages('Seurat')}."
+      "i" = "Install with {.run utils::install.packages('Seurat')}."
     ))
   }
 
@@ -2266,7 +2290,7 @@ plot_patient_response_panel <- function(
   if (!requireNamespace("gridExtra", quietly = TRUE)) {
     cli::cli_abort(c(
       "Package {.pkg gridExtra} is required.",
-      "i" = "Install with {.run install.packages('gridExtra')}."
+      "i" = "Install with {.run utils::install.packages('gridExtra')}."
     ))
   }
 
@@ -2297,34 +2321,34 @@ plot_patient_response_panel <- function(
       plot_roc_curve(
         response = exp_vs_pred[[response_col]],
         predictor = exp_vs_pred[[predicted_col]],
-        smooth_curve = n_pts >= 10
+        smooth_curve = n_pts >= 10L
       )
     },
     error = function(e) {
       # Last-resort fallback: render an empty placeholder ggplot with error message
-      ggplot(data.frame(
-        x = 0,
-        y = 0,
+      ggplot2::ggplot(data.frame(
+        x = 0L,
+        y = 0L,
         label = paste("ROC unavailable:", e$message)
       )) +
-        geom_text(
-          aes(x, y, label = label),
+        ggplot2::geom_text(
+          ggplot2::aes(x, y, label = label),
           hjust = 0.5,
           vjust = 0.5,
-          size = 3
+          size = 3L
         ) +
-        theme_void() +
-        labs(title = "ROC Curve (unavailable)")
+        ggplot2::theme_void() +
+        ggplot2::labs(title = "ROC Curve (unavailable)")
     }
   )
 
   # Arrange panels
   if (is.null(layout_matrix)) {
     layout_matrix <- rbind(
-      c(1, 1),
-      c(2, 2),
-      c(2, 2),
-      c(3, 4)
+      c(1L, 1L),
+      c(2L, 2L),
+      c(2L, 2L),
+      c(3L, 4L)
     )
   }
 
@@ -2376,13 +2400,13 @@ plot_tsne_biomarker_viability <- function(
   viability_var = "viability_scaled",
   biomarker_label = "Biomarker Exp",
   viability_label = "Drug Viability",
-  nrow = 1,
-  base_size = 8
+  nrow = 1L,
+  base_size = 8L
 ) {
   if (!requireNamespace("gridExtra", quietly = TRUE)) {
     cli::cli_abort(c(
       "Package {.pkg gridExtra} is required.",
-      "i" = "Install with {.run install.packages('gridExtra')}."
+      "i" = "Install with {.run utils::install.packages('gridExtra')}."
     ))
   }
 
@@ -2439,9 +2463,9 @@ export_plot_cairo <- function(
   file,
   plot,
   format = "png",
-  width = 7,
-  height = 5,
-  res = 600,
+  width = 7L,
+  height = 5L,
+  res = 600L,
   draw_fun = NULL
 ) {
   format <- tolower(format)
@@ -2453,7 +2477,7 @@ export_plot_cairo <- function(
         width = width,
         height = height,
         units = "in",
-        res = max(res, 96),
+        res = max(res, 96L),
         type = "cairo"
       )
     } else {
@@ -2462,7 +2486,7 @@ export_plot_cairo <- function(
         width = width,
         height = height,
         units = "in",
-        res = max(res, 96)
+        res = max(res, 96L)
       )
     }
   } else if (format == "svg") {

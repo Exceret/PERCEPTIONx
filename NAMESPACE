@@ -26,6 +26,8 @@ export(list_mirrors)
 export(load_depmap)
 export(load_model)
 export(parse_clone_keys)
+export(perception_depmap_drugs)
+export(perception_fda_approved_drugs)
 export(plot_clone_distribution)
 export(plot_clone_umap)
 export(plot_clone_viability)
@@ -47,79 +49,10 @@ export(run_parallel_feature_ranking_bulk)
 export(run_perception_app)
 export(train_models)
 export(zscore_viability)
-importFrom(caret,predict.train)
-importFrom(ggplot2,
-  aes,
-  annotate,
-  coord_cartesian,
-  coord_equal,
-  element_blank,
-  element_line,
-  element_rect,
-  element_text,
-  facet_grid,
-  facet_wrap,
-  geom_abline,
-  geom_bar,
-  geom_boxplot,
-  geom_hline,
-  geom_jitter,
-  geom_line,
-  geom_point,
-  geom_rect,
-  geom_segment,
-  geom_text,
-  geom_violin,
-  geom_vline,
-  ggplot,
-  ggtitle,
-  guide_colourbar,
-  guide_legend,
-  guides,
-  labs,
-  margin,
-  rel,
-  scale_color_manual,
-  scale_colour_gradient2,
-  scale_colour_gradientn,
-  scale_colour_manual,
-  scale_fill_manual,
-  scale_size,
-  scale_x_discrete,
-  theme,
-  theme_bw,
-  theme_void,
-  unit,
-  vars
+importFrom(data.table,
+  "%chin%",
+  ":=",
+  .N,
+  .SD
 )
-importFrom(glmnet,glmnet)
-importFrom(pROC,
-  auc,
-  ggroc,
-  roc,
-  smooth
-)
-importFrom(randomForest,randomForest)
 importFrom(rlang,.data)
-importFrom(stats,
-  aggregate,
-  complete.cases,
-  cor,
-  cor.test,
-  median,
-  na.omit,
-  p.adjust,
-  phyper,
-  pnorm,
-  predict,
-  pt,
-  reformulate,
-  setNames,
-  t.test,
-  wilcox.test
-)
-importFrom(utils,
-  combn,
-  download.file,
-  head
-)

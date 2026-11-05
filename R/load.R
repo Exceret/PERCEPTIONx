@@ -2,7 +2,6 @@
 #'
 #' @name load_perception
 #' @keywords internal
-#' @importFrom utils download.file
 NULL
 
 # Package-level environment for storing DepMap data
@@ -13,7 +12,7 @@ NULL
 # truncated downloads / partial cache files so they are never cached or
 # parsed. Bump this if the release asset is ever regenerated with a
 # different size.
-.depmap_release_size <- 594589700
+.depmap_release_size <- 594589700L
 
 #' Get the DepMap dataset
 #'
@@ -65,9 +64,9 @@ download_with_mirrors <- function(
   urls,
   destfile,
   quiet = FALSE,
-  speed_threshold = 10,
-  timeout_seconds = 30,
-  retries = 0,
+  speed_threshold = 10L,
+  timeout_seconds = 30L,
+  retries = 0L,
   expected_size = NULL
 ) {
   # Save and restore R timeout setting
@@ -106,8 +105,8 @@ download_with_mirrors <- function(
       cli::cli_alert_info("Trying mirror {i}/{length(urls)}")
     }
 
-    for (attempt in 0:retries) {
-      if (attempt > 0 && !quiet) {
+    for (attempt in 0L:retries) {
+      if (attempt > 0L && !quiet) {
         cli::cli_alert_info("Retry attempt {attempt}")
       }
 
@@ -119,12 +118,12 @@ download_with_mirrors <- function(
       tryCatch(
         {
           suppressWarnings({
-            curl_extra <- if (attempt > 0) {
+            curl_extra <- if (attempt > 0L) {
               paste(extra_base, "-C -")
             } else {
               extra_base
             }
-            download.file(
+            utils::download.file(
               urls[i],
               destfile,
               mode = "wb",
@@ -168,7 +167,7 @@ download_with_mirrors <- function(
           incomplete <- TRUE
           if (!quiet) {
             cli::cli_alert_warning(
-              "Incomplete download: {sz} of {expected_size} bytes ({round(100 * sz / expected_size, 1)}%), discarding and retrying."
+              "Incomplete download: {sz} of {expected_size} rlang::bytes ({round(100 * sz / expected_size, 1)}%), discarding and retrying."
             )
           }
           file.remove(destfile)
@@ -176,11 +175,11 @@ download_with_mirrors <- function(
         }
       }
 
-      if (success && file.exists(destfile) && file.size(destfile) > 0) {
+      if (success && file.exists(destfile) && file.size(destfile) > 0L) {
         end_time <- Sys.time()
         elapsed <- as.numeric(difftime(end_time, start_time, units = "secs"))
-        file_size_mb <- file.size(destfile) / 1024 / 1024
-        speed_kb_s <- (file.size(destfile) / 1024) / elapsed
+        file_size_mb <- file.size(destfile) / 1024L / 1024L
+        speed_kb_s <- (file.size(destfile) / 1024L) / elapsed
 
         if (!quiet) {
           cli::cli_alert_success(
@@ -272,7 +271,7 @@ add_mirrors <- function(urls, position = c("first", "last")) {
   urls <- unique(urls)
   urls <- urls[!urls %in% current_mirrors]
 
-  if (length(urls) == 0) {
+  if (length(urls) == 0L) {
     cli::cli_alert_info("All mirrors already exist.")
     return(invisible(current_mirrors))
   }
@@ -410,14 +409,14 @@ load_model <- function(
   read = FALSE,
   mirror = FALSE,
   mirror_url = NULL,
-  timeout_seconds = 30,
-  retries = 0,
+  timeout_seconds = 30L,
+  retries = 0L,
   force = FALSE,
   all = FALSE
 ) {
   drugs <- tolower(c(...))
   if (all) {
-    if (length(drugs) > 0) {
+    if (length(drugs) > 0L) {
       warning(
         "all = TRUE overrides the drug names given in ...; downloading all 44 models.",
         call. = FALSE
@@ -425,7 +424,7 @@ load_model <- function(
     }
     drugs <- perception_all_drugs
   }
-  if (length(drugs) == 0) {
+  if (length(drugs) == 0L) {
     cli::cli_abort(
       "Drug list is empty. Pass drug names or set {.code all = TRUE} to download all 44 pre-trained models."
     )
@@ -488,7 +487,7 @@ load_model <- function(
     }
   }
 
-  if (read && length(result) > 0) {
+  if (read && length(result) > 0L) {
     return(result)
   }
 
@@ -540,8 +539,8 @@ load_depmap <- function(
   read = FALSE,
   mirror = FALSE,
   mirror_url = NULL,
-  timeout_seconds = 300,
-  retries = 1,
+  timeout_seconds = 300L,
+  retries = 1L,
   force = FALSE
 ) {
   if (!dir.exists(dest)) {
@@ -623,7 +622,9 @@ load_depmap <- function(
     cli::cli_alert_success(
       "Assigned {.val DepMap} to package cache and global environment."
     )
-    cli::cli_alert_info("Use {.code get_depmap()} or {.code DepMap} to access the data.")
+    cli::cli_alert_info(
+      "Use {.code get_depmap()} or {.code DepMap} to access the data."
+    )
     return(invisible(DepMap))
   }
 

@@ -46,3 +46,4 @@ inst/testdata/
 
 # pkgdown site output (built by CI, deployed to gh-pages)
 docs/
+*.qs2

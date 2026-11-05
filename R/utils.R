@@ -1,7 +1,7 @@
 # RowMeans functions considering the boundary case where mat has a single
 # column (one cell / sample) — rowMeans would error on a one-column matrix.
 rowMeans_if_one_row <- function(mat) {
-  if (ncol(mat) > 1) {
+  if (ncol(mat) > 1L) {
     return(rowMeans(mat))
   } else {
     return(mat)
@@ -44,8 +44,8 @@ stripall2match <- function(x) {
 parse_clone_keys <- function(x) {
   parts <- strsplit(as.character(x), "@@")
   data.frame(
-    patient = sapply(parts, `[`, 1),
-    clone_id = sapply(parts, `[`, 2),
+    patient = sapply(parts, `[`, 1L),
+    clone_id = sapply(parts, `[`, 2L),
     stringsAsFactors = FALSE
   )
 }

@@ -34,5 +34,10 @@ Authors:
   \item Jia Ding \email{jiading682@qq.com} (\href{https://orcid.org/0009-0002-2530-0897}{ORCID})
 }
 
+Other contributors:
+\itemize{
+  \item Yuxi Yang \email{15364051195@163.com} (\href{https://orcid.org/0009-0006-1329-1224}{ORCID}) [contributor]
+}
+
 }
 \keyword{internal}
