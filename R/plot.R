@@ -1841,14 +1841,13 @@ plot_model_roc <- function(performance_list, base_size = 13L) {
   # Per-drug collection. A drug is only dropped when NONE of its three
   # validation datasets can produce a curve; the reason is recorded (with
   # counts) so the app can tell the user exactly what happened.
-  dropped_reasons <- character()
-  curve_rows <- lapply(names(performance_list), function(d) {
+  curve_specs <- lapply(names(performance_list), function(d) {
     m <- performance_list[[d]]
     if (is.null(m$predVSgroundTruth)) {
-      dropped_reasons[[
-        d
-      ]] <<- "no prediction-vs-observed data stored in the model"
-      return(NULL)
+      return(list(
+        rows = NULL,
+        why = "no prediction-vs-observed data stored in the model"
+      ))
     }
     ds_out <- lapply(names(ds_map), function(k) {
       df <- m$predVSgroundTruth[[k]]
@@ -1944,16 +1943,22 @@ plot_model_roc <- function(performance_list, base_size = 13L) {
     reasons <- reasons[nzchar(reasons)]
     ok_rows <- do.call(rbind, lapply(ds_out, function(x) x$rows))
     if (is.null(ok_rows)) {
-      dropped_reasons[[d]] <<- paste(reasons, collapse = "; ")
-      return(NULL)
+      return(list(rows = NULL, why = paste(reasons, collapse = "; ")))
     }
-    ok_rows
+    list(rows = ok_rows, why = NULL)
   })
-  names(curve_rows) <- names(performance_list)
+  names(curve_specs) <- names(performance_list)
   # Drugs that produced no ROC data at all -- record them so the app can tell
   # the user instead of silently showing fewer panels.
-  dropped_drugs <- names(curve_rows)[vapply(curve_rows, is.null, logical(1L))]
-  curve_rows <- curve_rows[!vapply(curve_rows, is.null, logical(1L))]
+  no_rows <- vapply(curve_specs, function(x) is.null(x$rows), logical(1L))
+  dropped_drugs <- names(curve_specs)[no_rows]
+  dropped_reasons <- vapply(
+    curve_specs[no_rows],
+    function(x) if (is.null(x$why)) "" else x$why,
+    character(1L)
+  )
+  curve_rows <- lapply(curve_specs, function(x) x$rows)
+  curve_rows <- curve_rows[!no_rows]
   if (length(curve_rows) == 0L) {
     cli::cli_abort(
       "No prediction-vs-observed data available to compute validation ROC."
@@ -2217,12 +2222,7 @@ plot_seurat_clustering <- function(
 ) {
   method <- rlang::arg_match(method)
 
-  if (!requireNamespace("Seurat", quietly = TRUE)) {
-    cli::cli_abort(c(
-      "Package {.pkg Seurat} is required.",
-      "i" = "Install with {.run utils::install.packages('Seurat')}."
-    ))
-  }
+  rlang::check_installed("Seurat")
 
   # Shared pipeline (also used by annotate_clones) includes the PCA-dimension
   # safeguard for small datasets.

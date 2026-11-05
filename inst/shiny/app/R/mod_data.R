@@ -1560,7 +1560,7 @@ mod_data_server <- function(id, shared) {
           loaded_count <- 0
           failed_drugs <- c()
           for (drug in drug_list) {
-            tryCatch(
+            load_error <- tryCatch(
               {
                 new_model <- PERCEPTIONx::load_model(
                   drug,
@@ -1574,14 +1574,15 @@ mod_data_server <- function(id, shared) {
                 shared$model_cache[[drug]] <- new_model[[drug]]
                 shared$model_active[[drug]] <- TRUE
                 loaded_count <- loaded_count + 1
+                NULL
               },
               error = function(e) {
-                failed_drugs <<- c(
-                  failed_drugs,
-                  paste0(drug, " (", conditionMessage(e), ")")
-                )
+                paste0(drug, " (", conditionMessage(e), ")")
               }
             )
+            if (!is.null(load_error)) {
+              failed_drugs <- c(failed_drugs, load_error)
+            }
           }
           w$hide()
           if (loaded_count > 0) {
@@ -1634,7 +1635,7 @@ mod_data_server <- function(id, shared) {
       ok_names <- character(0)
       errs <- character(0)
       for (k in seq_len(nrow(files))) {
-        tryCatch(
+        read_error <- tryCatch(
           {
             model_obj <- readRDS(files$datapath[k])
             drug_name <- tools::file_path_sans_ext(basename(files$name[k]))
@@ -1652,14 +1653,15 @@ mod_data_server <- function(id, shared) {
             shared$model_cache[[drug_name]] <- model_obj
             shared$model_active[[drug_name]] <- TRUE
             ok_names <- c(ok_names, drug_name)
+            NULL
           },
           error = function(e) {
-            errs <<- c(
-              errs,
-              paste0(basename(files$name[k]), ": ", conditionMessage(e))
-            )
+            paste0(basename(files$name[k]), ": ", conditionMessage(e))
           }
         )
+        if (!is.null(read_error)) {
+          errs <- c(errs, read_error)
+        }
       }
       w$hide()
       if (length(ok_names) > 0) {

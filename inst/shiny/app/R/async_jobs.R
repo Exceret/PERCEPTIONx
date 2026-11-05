@@ -86,23 +86,24 @@ spawn_r_bg_retry <- function(
   config_err <- character(0)
   for (cfg in configs) {
     for (attempt in seq_len(retries + 1L)) {
-      tryCatch(
-        return(callr::r_bg(
+      job <- tryCatch(
+        callr::r_bg(
           func = func,
           args = args,
           supervise = cfg$supervise,
           poll_connection = FALSE,
           stdout = cfg$stdout,
           stderr = cfg$stderr
-        )),
-        error = function(e) {
-          last_err <<- e
-          if (attempt <= retries) {
-            Sys.sleep(delay_ms / 1000)
-          }
-          NULL
-        }
+        ),
+        error = function(e) e
       )
+      if (!inherits(job, "error")) {
+        return(job)
+      }
+      last_err <- job
+      if (attempt <= retries) {
+        Sys.sleep(delay_ms / 1000)
+      }
     }
     config_err <- c(config_err, conditionMessage(last_err))
     gc() # release any half-open connections before the next config

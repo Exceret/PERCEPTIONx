@@ -112,10 +112,9 @@ download_with_mirrors <- function(
 
       start_time <- Sys.time()
       success <- FALSE
-      timeout_occurred <- FALSE
       incomplete <- FALSE
 
-      tryCatch(
+      download_status <- tryCatch(
         {
           suppressWarnings({
             curl_extra <- if (attempt > 0L) {
@@ -133,29 +132,30 @@ download_with_mirrors <- function(
             )
           })
           success <- TRUE
+          "success"
         },
         error = function(e) {
-          if (
-            grepl(
-              "Timeout|timed out|reached elapsed time",
-              e$message,
-              ignore.case = TRUE
-            )
-          ) {
-            timeout_occurred <<- TRUE
-            if (!quiet && attempt == retries) {
+          timed_out <- grepl(
+            "Timeout|timed out|reached elapsed time",
+            e$message,
+            ignore.case = TRUE
+          )
+          if (!quiet && attempt == retries) {
+            if (timed_out) {
               cli::cli_alert_warning(
                 "Mirror {i} timed out after {timeout_seconds} seconds."
               )
-            }
-          } else {
-            if (!quiet && attempt == retries) {
+            } else {
               cli::cli_alert_warning("Mirror {i} failed: {e$message}")
             }
           }
-          if (file.exists(destfile)) file.remove(destfile)
+          if (file.exists(destfile)) {
+            file.remove(destfile)
+          }
+          if (timed_out) "timeout" else "error"
         }
       )
+      timeout_occurred <- identical(download_status, "timeout")
 
       # A "successful" transfer can still be truncated by a flaky connection
       # or a misbehaving proxy: verify the size against the known release
@@ -310,55 +310,35 @@ reset_mirrors <- function() {
 }
 
 
-# The 44 pre-trained model drugs shipped with the package (used by
-# load_model(all = TRUE) to pre-cache the full set on deployment servers).
-# Single source of truth — train_models() defaults and the Shiny app's drug
-# dropdown both read this list.
+#' The 44 pre-trained model drugs shipped with the package (used by
+#' load_model(all = TRUE) to pre-cache the full set on deployment servers).
+#' Single source of truth — train_models() defaults and the Shiny app's drug
+#' dropdown both read this list.
+#' @export
+# fmt:table
 perception_all_drugs <- c(
-  "abemaciclib",
-  "afatinib",
-  "axitinib",
-  "azacitidine",
-  "cladribine",
-  "clofarabine",
-  "cobimetinib",
-  "dabrafenib",
-  "dasatinib",
-  "daunorubicin",
-  "decitabine",
-  "docetaxel",
-  "doxorubicin",
-  "epirubicin",
-  "erlotinib",
-  "etoposide",
-  "gefitinib",
-  "gemcitabine",
-  "homoharringtonine",
-  "ibrutinib",
-  "icotinib",
-  "ixabepilone",
-  "lapatinib",
-  "lenvatinib",
-  "midostaurin",
-  "niraparib",
-  "osimertinib",
-  "paclitaxel",
-  "palbociclib",
-  "ponatinib",
-  "romidepsin",
-  "sunitinib",
-  "temsirolimus",
-  "teniposide",
-  "thioguanine",
-  "topotecan",
-  "trametinib",
-  "vandetanib",
-  "vemurafenib",
-  "vinblastine",
-  "vincristine",
-  "vindesine",
-  "vinflunine",
-  "vinorelbine"
+  "abemaciclib"       , "afatinib"     ,
+  "axitinib"          , "azacitidine"  ,
+  "cladribine"        , "clofarabine"  ,
+  "cobimetinib"       , "dabrafenib"   ,
+  "dasatinib"         , "daunorubicin" ,
+  "decitabine"        , "docetaxel"    ,
+  "doxorubicin"       , "epirubicin"   ,
+  "erlotinib"         , "etoposide"    ,
+  "gefitinib"         , "gemcitabine"  ,
+  "homoharringtonine" , "ibrutinib"    ,
+  "icotinib"          , "ixabepilone"  ,
+  "lapatinib"         , "lenvatinib"   ,
+  "midostaurin"       , "niraparib"    ,
+  "osimertinib"       , "paclitaxel"   ,
+  "palbociclib"       , "ponatinib"    ,
+  "romidepsin"        , "sunitinib"    ,
+  "temsirolimus"      , "teniposide"   ,
+  "thioguanine"       , "topotecan"    ,
+  "trametinib"        , "vandetanib"   ,
+  "vemurafenib"       , "vinblastine"  ,
+  "vincristine"       , "vindesine"    ,
+  "vinflunine"        , "vinorelbine"
 )
 
 #' Load pre-built model of provided drugs

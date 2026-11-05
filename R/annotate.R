@@ -736,6 +736,7 @@ prepare_data <- function(
   # Row order matches clone_expression_rnorm column order
   clone_viability_template <- parse_clone_keys(colnames(clone_expression_rnorm))
 
+  cli::cli_progress_done()
   cli::cli_h2("Preparation complete")
   cli::cli_ul("Genes: {.val {nrow(clone_expression_rnorm)}}")
   cli::cli_ul("Clones: {.val {ncol(clone_expression_rnorm)}}")
