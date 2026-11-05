@@ -299,7 +299,9 @@ predict_patients <- function(
     clone_viability_matrix[, clone_id := clone_template$clone_id]
   } else if (is.data.frame(prepared_data)) {
     # Legacy mode: prepared_data is actually clone_counts, clone_pred is clone_viability_matrix
-    clone_viability_matrix <- clone_pred
+    # copy(): the `:=` edits below would otherwise modify a data.table input in
+    # place, i.e. the caller's object.
+    clone_viability_matrix <- data.table::copy(clone_pred)
     clone_counts <- prepared_data
   } else {
     cli::cli_abort(

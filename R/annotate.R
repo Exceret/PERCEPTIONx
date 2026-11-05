@@ -452,7 +452,11 @@ prepare_data <- function(
     is.data.frame(patient_mapping) || data.table::is.data.table(patient_mapping)
   ) {
     # Copy, so that set-by-reference edits below never touch the caller's object.
-    patient_mapping <- data.table::as.data.table(patient_mapping)
+    # as.data.table() returns the same object when the input is already a
+    # data.table, so an explicit copy() is required for that case.
+    patient_mapping <- data.table::copy(
+      data.table::as.data.table(patient_mapping)
+    )
 
     # Optional per-clone abundance column (count / cells / n_cells /
     # n_cells_per_clone / abundance): expand each row to that many rows so that

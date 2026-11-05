@@ -21,7 +21,9 @@ VignetteBuilder: knitr
 Imports:
     ggplot2,
     gridExtra,
+    glmnet,
     caret,
+    randomForest,
     pROC,
     rlang,
     Seurat,
@@ -49,8 +51,6 @@ Suggests:
     spelling,
     WGCNA,
     matrixStats,
-    glmnet,
-    randomForest,
     kableExtra
 Config/testthat/edition: 3
 Language: en-US
